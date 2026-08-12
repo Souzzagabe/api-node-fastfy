@@ -38,13 +38,13 @@ server.delete('/todos/:id', async (request, reply) => {
 const PORT = process.env.PORT || 3000;
 
 try {
-  await fastify.listen({
+  await server.listen({
     port: PORT,
-    host: "0.0.0.0",
+    host: '0.0.0.0',
   });
 
   console.log(`Server running on port ${PORT}`);
 } catch (error) {
-  fastify.log.error(error);
+  server.log.error(error);
   process.exit(1);
 }
