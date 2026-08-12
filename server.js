@@ -35,7 +35,7 @@ server.delete('/videos/:id', async (request, reply) => {
   return reply.status(200).send({ message: 'Video deleted successfully!' });
 });
 
-server.listen({ port: process.env.PORT ?? 3000 }).catch((err) => {
-  console.error(err);
-  process.exit(1);
+fastify.listen({
+  port: process.env.PORT ?? 3000,
+  host: "0.0.0.0",
 });
