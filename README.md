@@ -243,11 +243,11 @@ Não há prefixo adicional de rota.
 
 ## Endpoints
 
-### `POST /videos`
+### `POST /todos`
 
 - Método: `POST`
-- URL: `/videos`
-- Objetivo: criar novo vídeo.
+- URL: `/todos`
+- Objetivo: criar novo todo.
 - Autenticação: não.
 - Headers:
   - `Content-Type: application/json`
@@ -256,15 +256,15 @@ Não há prefixo adicional de rota.
 
 ```json
 {
-  "title": "node",
-  "description": "This is a description of my first video.",
-  "duration": 120
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": false
 }
 ```
 
 - `title`: obrigatório, string.
 - `description`: obrigatório, string.
-- `duration`: obrigatório, inteiro.
+- `completed`: opcional, booleano.
 
 #### Resposta de sucesso
 
@@ -282,19 +282,19 @@ Status: `201`
 
 ---
 
-### `GET /videos`
+### `GET /todos`
 
 - Método: `GET`
-- URL: `/videos`
-- Objetivo: listar vídeos.
+- URL: `/todos`
+- Objetivo: listar todos.
 - Autenticação: não.
 - Query parameters:
-  - `search` (opcional): filtra vídeos por título.
+  - `search` (opcional): filtra tarefas por título.
 
 #### Exemplo
 
 ```http
-GET /videos?search=node
+GET /todos?search=leite
 ```
 
 #### Resposta de sucesso
@@ -305,9 +305,9 @@ Status: `200`
 [
   {
     "id": "uuid",
-    "title": "node",
-    "description": "This is a description of my first video.",
-    "duration": 120,
+    "title": "Comprar leite",
+    "description": "Comprar leite integral no mercado.",
+    "completed": false,
     "created_at": "2026-08-12T00:00:00.000Z"
   }
 ]
@@ -315,22 +315,22 @@ Status: `200`
 
 ---
 
-### `PUT /videos/:id`
+### `PUT /todos/:id`
 
 - Método: `PUT`
-- URL: `/videos/:id`
-- Objetivo: atualizar vídeo existente.
+- URL: `/todos/:id`
+- Objetivo: atualizar todo existente.
 - Autenticação: não.
 - Parâmetros de rota:
-  - `id`: UUID do vídeo.
+  - `id`: UUID do todo.
 
 #### Body
 
 ```json
 {
-  "title": "Updated Video Title",
-  "description": "This is an updated description.",
-  "duration": 150
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": true
 }
 ```
 
@@ -340,17 +340,17 @@ Status: `200`
 
 ```json
 {
-  "message": "Video updated successfully!"
+  "message": "Todo updated successfully!"
 }
 ```
 
 #### Possíveis erros
 
-- `404` se o vídeo não existir.
+- `404` se o todo não existir.
 
 ```json
 {
-  "message": "Video not found"
+  "message": "Todo not found"
 }
 ```
 
@@ -358,14 +358,14 @@ Status: `200`
 
 ---
 
-### `DELETE /videos/:id`
+### `DELETE /todos/:id`
 
 - Método: `DELETE`
-- URL: `/videos/:id`
-- Objetivo: remover vídeo.
+- URL: `/todos/:id`
+- Objetivo: remover todo.
 - Autenticação: não.
 - Parâmetros de rota:
-  - `id`: UUID do vídeo.
+  - `id`: UUID do todo.
 
 #### Resposta de sucesso
 
@@ -373,7 +373,7 @@ Status: `200`
 
 ```json
 {
-  "message": "Video deleted successfully!"
+  "message": "Tod deleted successfully!"
 }
 ```
 

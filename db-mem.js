@@ -1,32 +1,32 @@
 import { randomUUID } from 'crypto';
 
 export class Database {
-    #videos = new Map();
+    #todos = new Map();
 
     list(search) {
-        return Array.from(this.#videos.entries())
+        return Array.from(this.#todos.entries())
             .map(([id, data]) => ({
                 id,
                 ...data
             }))
-            .filter(video => !search || video.title.includes(search));
+            .filter(todo => !search || todo.title.includes(search));
     }
 
-    create(video) {
-        const videoId = randomUUID();
-        this.#videos.set(videoId, video);
-        return videoId;
+    create(todo) {
+        const todoId = randomUUID();
+        this.#todos.set(todoId, todo);
+        return todoId;
     }
 
-    update(id, video) {
-        if (this.#videos.has(id)) {
-            this.#videos.set(id, video);
+    update(id, todo) {
+        if (this.#todos.has(id)) {
+            this.#todos.set(id, todo);
             return true;
         }
         return false;
     }
 
     delete(id) {
-        this.#videos.delete(id);
+        this.#todos.delete(id);
     }
 }

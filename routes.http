@@ -1,30 +1,30 @@
-POST http://localhost:3000/videos
+POST http://localhost:3000/todos
 Content-Type: application/json
 
 {
-  "title": "node",
-  "description": "This is a description of my first video.",
-  "duration": 120
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": false
 }
 
 
 ###
 
-GET http://localhost:3000/videos?search=node
+GET http://localhost:3000/todos?search=leite
 
 
 ###
 
-PUT http://localhost:3000/videos/3153f61f-d70e-4823-8e37-8e93aca02f40
+PUT http://localhost:3000/todos/3153f61f-d70e-4823-8e37-8e93aca02f40
 Content-Type: application/json
 
 {
-  "title": "Updated Video Title@@@@@@@@@@@@@@@@@",
-  "description": "This is an updated description.",
-  "duration": 150
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": true
 }
 
 
 ###
 
-DELETE http://localhost:3000/videos/a44f3f71-a59b-451a-a4e0-762f12246f6a
+DELETE http://localhost:3000/tods/a44f3f71-a59b-451a-a4e0-762f12246f6a

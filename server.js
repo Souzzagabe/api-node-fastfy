@@ -6,36 +6,45 @@ const database = new DatabasePostgres();
 
 await database.init();
 
-server.post('/videos', async (request, reply) => {
-  const { title, description, duration } = request.body;
-  const id = await database.create({ title, description, duration });
+server.post('/todos', async (request, reply) => {
+  const { title, description, completed = false } = request.body;
+  const id = await database.create({ title, description, completed });
   return reply.status(201).send({ id });
 });
 
-server.get('/videos', async (request, reply) => {
+server.get('/todos', async (request, reply) => {
   const { search } = request.query;
-  const videos = await database.list(search);
-  return reply.send(videos);
+  const todos = await database.list(search);
+  return reply.send(todos);
 });
 
-server.put('/videos/:id', async (request, reply) => {
-  const videoId = request.params.id;
-  const { title, description, duration } = request.body;
+server.put('/todos/:id', async (request, reply) => {
+  const todoId = request.params.id;
+  const { title, description, completed = false } = request.body;
 
-  const ok = await database.update(videoId, { title, description, duration });
+  const ok = await database.update(todoId, { title, description, completed });
   if (!ok) {
-    return reply.status(404).send({ message: 'Video not found' });
+    return reply.status(404).send({ message: 'Todo not found' });
   }
-  return reply.status(200).send({ message: 'Video updated successfully!' });
+  return reply.status(200).send({ message: 'Todo updated successfully!' });
 });
 
-server.delete('/videos/:id', async (request, reply) => {
+server.delete('/todos/:id', async (request, reply) => {
   const { id } = request.params;
   await database.delete(id);
-  return reply.status(200).send({ message: 'Video deleted successfully!' });
+  return reply.status(200).send({ message: 'Todo deleted successfully!' });
 });
 
-fastify.listen({
-  port: process.env.PORT ?? 3000,
-  host: "0.0.0.0",
-});
+const PORT = process.env.PORT || 3000;
+
+try {
+  await fastify.listen({
+    port: PORT,
+    host: "0.0.0.0",
+  });
+
+  console.log(`Server running on port ${PORT}`);
+} catch (error) {
+  fastify.log.error(error);
+  process.exit(1);
+}

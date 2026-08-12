@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const migrationsDir = path.join(__dirname, 'migrations');
-const createVideosSql = fs.readFileSync(path.join(migrationsDir, '001-create-videos-table.sql'), 'utf8');
+const createTodosSql = fs.readFileSync(path.join(migrationsDir, '001-create-todos-table.sql'), 'utf8');
 
 export class DatabasePostgres {
   constructor() {
@@ -20,7 +20,7 @@ export class DatabasePostgres {
   }
 
   async init() {
-    await this.sql.unsafe(createVideosSql);
+    await this.sql.unsafe(createTodosSql);
   }
 
   async close() {
@@ -31,35 +31,35 @@ export class DatabasePostgres {
     if (search) {
       const pattern = `%${search}%`;
       return this.sql`
-        SELECT id, title, description, duration, created_at
-        FROM videos
+        SELECT id, title, description, completed, created_at
+        FROM todos
         WHERE title ILIKE ${pattern}
         ORDER BY created_at DESC
       `;
     }
 
     return this.sql`
-      SELECT id, title, description, duration, created_at
-      FROM videos
+      SELECT id, title, description, completed, created_at
+      FROM todos
       ORDER BY created_at DESC
     `;
   }
 
-  async create({ title, description, duration }) {
+  async create({ title, description, completed = false }) {
     const id = randomUUID();
     await this.sql`
-      INSERT INTO videos (id, title, description, duration)
-      VALUES (${id}, ${title}, ${description}, ${duration})
+      INSERT INTO todos (id, title, description, completed)
+      VALUES (${id}, ${title}, ${description}, ${completed})
     `;
     return id;
   }
 
-  async update(id, { title, description, duration }) {
+  async update(id, { title, description, completed = false }) {
     const result = await this.sql`
-      UPDATE videos
+      UPDATE todos
       SET title = ${title},
           description = ${description},
-          duration = ${duration}
+          completed = ${completed}
       WHERE id = ${id}
     `;
     return result.count > 0;
@@ -67,7 +67,7 @@ export class DatabasePostgres {
 
   async delete(id) {
     await this.sql`
-      DELETE FROM videos
+      DELETE FROM todos
       WHERE id = ${id}
     `;
   }
