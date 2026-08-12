@@ -1,0 +1,30 @@
+POST http://localhost:3000/videos
+Content-Type: application/json
+
+{
+  "title": "node",
+  "description": "This is a description of my first video.",
+  "duration": 120
+}
+
+
+###
+
+GET http://localhost:3000/videos?search=node
+
+
+###
+
+PUT http://localhost:3000/videos/3153f61f-d70e-4823-8e37-8e93aca02f40
+Content-Type: application/json
+
+{
+  "title": "Updated Video Title@@@@@@@@@@@@@@@@@",
+  "description": "This is an updated description.",
+  "duration": 150
+}
+
+
+###
+
+DELETE http://localhost:3000/videos/a44f3f71-a59b-451a-a4e0-762f12246f6a
