@@ -1,30 +1,175 @@
-POST http://localhost:3000/todos
+### ============================
+
+### LOCALHOST - CREATE USER
+
+### ============================
+
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{"username": "j",
+"username": "hoel",
+"password": "123456"
+}
+
+###
+
+### ============================
+
+### LOCALHOST - LOGIN
+
+### ============================
+
+POST http://localhost:3000/login
 Content-Type: application/json
 
 {
-  "title": "Comprar leite",
-  "description": "Comprar leite integral no mercado.",
-  "completed": false
+"username": "gabriel",
+"password": "123456"
 }
 
+###
+
+### ============================
+
+### LOCALHOST - CREATE TODO
+
+### ============================
+
+POST http://localhost:3000/todos
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY1ODY1ODN9.F09Ep0nvjM-qjh1nufaiulva_IanX4w3w2ol4-8iNT0
+
+{
+"title": "Comprar leite",
+"description": "Comprar leite integral no mercado.",
+"completed": false
+}
 
 ###
 
-GET http://localhost:3000/todos?search=leite
+### ============================
 
+### LOCALHOST - LIST TODOS
+
+### ============================
+
+GET http://localhost:3000/todos
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY1ODY1ODN9.F09Ep0nvjM-qjh1nufaiulva_IanX4w3w2ol4-8iNT0
 
 ###
+
+### ============================
+
+### LOCALHOST - UPDATE TODO
+
+### ============================
 
 PUT http://localhost:3000/todos/3153f61f-d70e-4823-8e37-8e93aca02f40
 Content-Type: application/json
+Authorization: Bearer <TOKEN_LOCAL>
 
 {
-  "title": "Comprar leite",
-  "description": "Comprar leite integral no mercado.",
-  "completed": true
+"title": "Comprar leite",
+"description": "Comprar leite integral no mercado.",
+"completed": true
 }
-
 
 ###
 
-DELETE http://localhost:3000/tods/a44f3f71-a59b-451a-a4e0-762f12246f6a
+### ============================
+
+### LOCALHOST - DELETE TODO
+
+### ============================
+
+DELETE http://localhost:3000/todos/a44f3f71-a59b-451a-a4e0-762f12246f6a
+Authorization: Bearer <TOKEN_LOCAL>
+
+### ============================================================
+
+### PRODUÇÃO - CREATE USER
+
+### ============================================================
+
+POST https://api-node-fastfy.onrender.com/users
+Content-Type: application/json
+
+{
+"username": "gabriel",
+"password": "123456"
+}
+
+###
+
+### ============================================================
+
+### PRODUÇÃO - LOGIN
+
+### ============================================================
+
+POST https://api-node-fastfy.onrender.com/login
+Content-Type: application/json
+
+{
+"username": "gabriel",
+"password": "123456"
+}
+
+###
+
+### ============================
+
+### PRODUÇÃO - CREATE TODO
+
+### ============================
+
+POST https://api-node-fastfy.onrender.com/todos
+Content-Type: application/json
+Authorization: Bearer <TOKEN_PROD>
+
+{
+"title": "Comprar leite",
+"description": "Comprar leite integral no mercado.",
+"completed": false
+}
+
+###
+
+### ============================
+
+### PRODUÇÃO - LIST TODOS
+
+### ============================
+
+GET https://api-node-fastfy.onrender.com/todos?search=leite
+Authorization: Bearer <TOKEN_PROD>
+
+###
+
+### ============================
+
+### PRODUÇÃO - UPDATE TODO
+
+### ============================
+
+PUT https://api-node-fastfy.onrender.com/todos/3153f61f-d70e-4823-8e37-8e93aca02f40
+Content-Type: application/json
+Authorization: Bearer <TOKEN_PROD>
+
+{
+"title": "Comprar leite",
+"description": "Comprar leite integral no mercado.",
+"completed": true
+}
+
+###
+
+### ============================
+
+### PRODUÇÃO - DELETE TODO
+
+### ============================
+
+DELETE https://api-node-fastfy.onrender.com/todos/a44f3f71-a59b-451a-a4e0-762f12246f6a
+Authorization: Bearer <TOKEN_PROD>

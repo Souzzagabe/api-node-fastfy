@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const migrationsDir = path.join(__dirname, 'migrations');
 const createTodosSql = fs.readFileSync(path.join(migrationsDir, '001-create-todos-table.sql'), 'utf8');
+const createUsersSql = fs.readFileSync(path.join(migrationsDir, '002-create-users-table.sql'), 'utf8');
 
 const sql = postgres(process.env.DATABASE_URL, {
   ssl: {
@@ -18,6 +19,7 @@ const sql = postgres(process.env.DATABASE_URL, {
 
 export async function initDatabase() {
   await sql.unsafe(createTodosSql);
+  await sql.unsafe(createUsersSql);
 }
 
 export async function closeDatabase() {

@@ -1,4 +1,4 @@
-# API de Vídeos
+# API de Todos
 
 ## Índice
 
@@ -12,65 +12,77 @@
 8. [Executando a aplicação](#executando-a-aplicação)
 9. [URL da API](#url-da-api)
 10. [Endpoints](#endpoints)
-11. [Autenticação e autorização](#autenticação-e-autorização)
-12. [CRUD de vídeos](#crud-de-vídeos)
-13. [Códigos HTTP](#códigos-http)
-14. [Tratamento de erros](#tratamento-de-erros)
-15. [Exemplos de consumo](#exemplos-de-consumo)
-16. [Testando a API](#testando-a-api)
-17. [Testes automatizados](#testes-automatizados)
-18. [Segurança](#segurança)
-19. [Banco de dados e queries](#banco-de-dados-e-queries)
-20. [Deploy](#deploy)
-21. [Fluxo da aplicação](#fluxo-da-aplicação)
-22. [Decisões arquiteturais](#decisões-arquiteturais)
-23. [Melhorias futuras](#melhorias-futuras)
-24. [Checklist de execução](#checklist-de-execução)
+11. [Criação de usuário](#criação-de-usuário)
+12. [Autenticação e login](#autenticação-e-login)
+13. [CRUD de todos](#crud-de-todos)
+14. [Códigos HTTP](#códigos-http)
+15. [Tratamento de erros](#tratamento-de-erros)
+16. [Exemplos de consumo](#exemplos-de-consumo)
+17. [Testando a API](#testando-a-api)
+18. [Testes automatizados](#testes-automatizados)
+19. [Segurança](#segurança)
+20. [Banco de dados e queries](#banco-de-dados-e-queries)
+21. [Deploy](#deploy)
+22. [Fluxo da aplicação](#fluxo-da-aplicação)
+23. [Decisões arquiteturais](#decisões-arquiteturais)
+24. [Melhorias futuras](#melhorias-futuras)
+25. [Checklist de execução](#checklist-de-execução)
 
 ---
 
 ## Visão Geral
 
-Esta API fornece um serviço REST para gerenciar vídeos. Ela permite criar, listar, buscar, atualizar e excluir vídeos armazenados em um banco PostgreSQL.
+Esta API fornece um serviço REST para gerenciamento de tarefas (todos).
 
-### Problema que resolve
+A aplicação permite criar, listar, buscar, atualizar e excluir tarefas armazenadas em um banco PostgreSQL.
 
-Permite gerenciar um catálogo de vídeos com operações básicas de CRUD, servindo como backend para aplicações que precisam armazenar e consultar metadados de vídeos.
+O acesso às operações de todos é protegido por autenticação JWT.
 
 ### Principais funcionalidades
 
-- Criar novo vídeo
-- Listar todos os vídeos
-- Buscar vídeos por termo no título
-- Atualizar vídeo por `id`
-- Excluir vídeo por `id`
+* Criar usuário
+* Login com JWT
+* Criar tarefa
+* Listar tarefas
+* Buscar tarefas por título
+* Atualizar tarefa
+* Excluir tarefa
+* Persistência dos dados em PostgreSQL
+* Proteção das rotas de tarefas com JWT
 
 ### Arquitetura geral
 
-A aplicação é uma API REST minimalista em Node.js com Fastify. A lógica de rotas está em `server.js`, enquanto o acesso ao banco está centralizado em `database-postgres.js`. Há uma migration SQL para criar a tabela `videos`.
+A aplicação é uma API REST desenvolvida com Node.js e Fastify.
+
+A responsabilidade das rotas está centralizada em `server.js`, enquanto o acesso ao PostgreSQL está isolado em `database-postgres.js`.
+
+A autenticação utiliza JWT e as senhas dos usuários são armazenadas utilizando hash com `bcryptjs`.
 
 ---
 
 ## Stack Tecnológica
 
-- Node.js
-- JavaScript (ES Modules)
-- Fastify
-- PostgreSQL
-- `postgres` (cliente SQL)
-- `dotenv`
-- `crypto` (módulo nativo do Node.js)
+* Node.js
+* JavaScript (ES Modules)
+* Fastify
+* `@fastify/jwt`
+* PostgreSQL
+* `postgres`
+* `bcryptjs`
+* `dotenv`
+* `crypto` — módulo nativo do Node.js
 
 ---
 
 ## Pré-requisitos
 
-- Node.js instalado
-- npm disponível
-- PostgreSQL ou serviço compatível com PostgreSQL
-- Arquivo `.env` configurado com `DATABASE_URL`
+* Node.js instalado
+* npm disponível
+* PostgreSQL ou serviço compatível com PostgreSQL
+* Arquivo `.env` configurado com `DATABASE_URL`
+* `JWT_SECRET` configurado em ambiente de produção
 
-Verifique as versões com:
+Verifique as versões:
 
 ```bash
 node --version
@@ -103,28 +115,59 @@ npm install
 
 ## Variáveis de ambiente
 
-Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
+Crie um arquivo `.env` na raiz do projeto:
 
 ```env
 DATABASE_URL=
-PORT=
+PORT=3000
+JWT_SECRET=
 ```
 
-### Variáveis
+### `DATABASE_URL`
 
-- `DATABASE_URL`
-  - O que representa: string de conexão com o banco PostgreSQL.
-  - Obrigatória: sim.
-  - Onde é utilizada: `database-postgres.js`, `db.js`.
-  - Exemplo: `postgresql://usuario:senha@host:porta/banco?sslmode=require`
+String de conexão com o banco PostgreSQL.
 
-- `PORT`
-  - O que representa: porta em que o servidor escuta.
-  - Obrigatória: não.
-  - Onde é utilizada: `server.js`.
-  - Exemplo: `3000`
+Exemplo:
 
-> Não inclua credenciais reais no repositório.
+```env
+DATABASE_URL=postgresql://usuario:senha@host:porta/banco?sslmode=require
+```
+
+Obrigatória: **sim**.
+
+---
+
+### `JWT_SECRET`
+
+Segredo utilizado para assinar os tokens JWT.
+
+Exemplo:
+
+```env
+JWT_SECRET=uma-chave-secreta-segura
+```
+
+Obrigatória: **não em desenvolvimento**, pois a aplicação possui `supersecret` como fallback.
+
+> Em produção, recomenda-se configurar uma chave forte através das variáveis de ambiente.
+
+---
+
+### `PORT`
+
+Porta utilizada pelo servidor.
+
+Exemplo:
+
+```env
+PORT=3000
+```
+
+Caso não seja informada, a aplicação utiliza a porta `3000`.
+
+---
+
+> **Importante:** nunca envie o arquivo `.env` para o GitHub.
 
 ---
 
@@ -132,56 +175,62 @@ PORT=
 
 ### Banco utilizado
 
-- PostgreSQL
+PostgreSQL.
 
-### Como criar/configurar o banco
+A aplicação utiliza duas tabelas principais:
 
-1. Crie um banco PostgreSQL local ou em nuvem.
-2. Obtenha a connection string (URL) no formato:
+* `users`
+* `todos`
 
-```text
-postgresql://usuario:senha@host:porta/banco?sslmode=require
+### Tabela `users`
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    username text NOT NULL UNIQUE,
+    password_hash text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
 ```
 
-3. Configure `DATABASE_URL` no `.env`.
+| Coluna          | Tipo          | Atributos                |
+| --------------- | ------------- | ------------------------ |
+| `id`            | `uuid`        | `PRIMARY KEY`            |
+| `username`      | `text`        | `NOT NULL UNIQUE`        |
+| `password_hash` | `text`        | `NOT NULL`               |
+| `created_at`    | `timestamptz` | `NOT NULL DEFAULT now()` |
 
-### Como conectar a aplicação
+### Tabela `todos`
 
-A aplicação se conecta ao banco usando `postgres(process.env.DATABASE_URL, { ssl: { rejectUnauthorized: false }})`.
-
-### Executar criação de tabelas
-
-Rode a migration:
-
-```bash
-npm run migrate
+```sql
+CREATE TABLE IF NOT EXISTS todos (
+    id uuid PRIMARY KEY,
+    title text NOT NULL,
+    description text NOT NULL,
+    completed boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
 ```
 
-### Schema do banco
-
-Tabela: `videos`
-
-| Coluna       | Tipo         | Atributos                    |
-|--------------|--------------|------------------------------|
-| `id`         | `uuid`       | `PRIMARY KEY`                |
-| `title`      | `text`       | `NOT NULL`                   |
-| `description`| `text`       | `NOT NULL`                   |
-| `duration`   | `integer`    | `NOT NULL`                   |
-| `created_at` | `timestamptz`| `NOT NULL DEFAULT now()`     |
+| Coluna        | Tipo          | Atributos                |
+| ------------- | ------------- | ------------------------ |
+| `id`          | `uuid`        | `PRIMARY KEY`            |
+| `title`       | `text`        | `NOT NULL`               |
+| `description` | `text`        | `NOT NULL`               |
+| `completed`   | `boolean`     | `NOT NULL DEFAULT false` |
+| `created_at`  | `timestamptz` | `NOT NULL DEFAULT now()` |
 
 ---
 
 ## Estrutura do projeto
 
-```
+```text
 .
 ├── .env
 ├── database-postgres.js
-├── db.js
-├── db-mem.js
-├── migrate.js
 ├── migrations/
-│   └── 001-create-videos-table.sql
+│   ├── 001-create-todos-table.sql
+│   └── 002-create-users-table.sql
 ├── node_modules/
 ├── package.json
 ├── package-lock.json
@@ -191,464 +240,1029 @@ Tabela: `videos`
 
 ### Responsabilidade dos arquivos
 
-- `server.js`: servidor Fastify e definição de rotas.
-- `database-postgres.js`: conexão com PostgreSQL e consultas SQL.
-- `db.js`: conexão de banco para migration e funções auxiliares.
-- `db-mem.js`: implementação em memória para testes manuais (não utilizada no servidor atual).
-- `migrate.js`: executa a migration para criar a tabela.
-- `migrations/001-create-videos-table.sql`: cria a tabela `videos`.
-- `routes.http`: exemplos de requisições REST para o VS Code REST Client.
+* `server.js`: servidor Fastify, autenticação JWT e definição das rotas.
+* `database-postgres.js`: conexão com PostgreSQL e execução das queries.
+* `migrations/001-create-todos-table.sql`: criação da tabela `todos`.
+* `migrations/002-create-users-table.sql`: criação da tabela `users`.
+* `routes.http`: exemplos de requisições para o VS Code REST Client.
+* `.env`: variáveis de ambiente.
 
 ---
 
 ## Executando a aplicação
 
-### Iniciar em desenvolvimento
+### Desenvolvimento
 
 ```bash
 npm run dev
 ```
 
-### Iniciar em produção
+### Produção
 
 ```bash
 npm start
 ```
 
-### Executar migration
-
-```bash
-npm run migrate
-```
-
 ### Scripts disponíveis
 
-- `npm start`: inicia `node server.js`.
-- `npm run dev`: inicia `node --watch server.js`.
-- `npm run migrate`: executa `node migrate.js`.
+```text
+npm start
+npm run dev
+```
+
+A aplicação também executa a criação das tabelas durante a inicialização através de:
+
+```js
+await database.init();
+```
 
 ---
 
 ## URL da API
 
-Base local:
+### Local
 
 ```text
 http://localhost:3000
 ```
 
-Não há prefixo adicional de rota.
+### Produção
+
+```text
+https://api-node-fastfy.onrender.com
+```
 
 ---
 
-## Endpoints
+# Endpoints
 
-### `POST /todos`
+## Usuários
 
-- Método: `POST`
-- URL: `/todos`
-- Objetivo: criar novo todo.
-- Autenticação: não.
-- Headers:
-  - `Content-Type: application/json`
+| Método | Endpoint | Autenticação |
+| ------ | -------- | ------------ |
+| `POST` | `/users` | Não          |
+| `POST` | `/login` | Não          |
 
-#### Body
+## Todos
 
-```json
-{
-  "title": "Comprar leite",
-  "description": "Comprar leite integral no mercado.",
-  "completed": false
-}
-```
-
-- `title`: obrigatório, string.
-- `description`: obrigatório, string.
-- `completed`: opcional, booleano.
-
-#### Resposta de sucesso
-
-Status: `201`
-
-```json
-{
-  "id": "uuid-gerado"
-}
-```
-
-#### Possíveis erros
-
-- `500` em erro interno do servidor ou do banco.
+| Método   | Endpoint     | Autenticação |
+| -------- | ------------ | ------------ |
+| `POST`   | `/todos`     | JWT          |
+| `GET`    | `/todos`     | JWT          |
+| `PUT`    | `/todos/:id` | JWT          |
+| `DELETE` | `/todos/:id` | JWT          |
 
 ---
 
-### `GET /todos`
+# Criação de usuário
 
-- Método: `GET`
-- URL: `/todos`
-- Objetivo: listar todos.
-- Autenticação: não.
-- Query parameters:
-  - `search` (opcional): filtra tarefas por título.
+## `POST /users`
 
-#### Exemplo
+Cria um novo usuário.
+
+### Autenticação
+
+Não requer autenticação.
+
+### Requisição
+
+```http
+POST /users
+Content-Type: application/json
+```
+
+### Body
+
+```json
+{
+    "username": "gabriel",
+    "password": "123456"
+}
+```
+
+### Campos
+
+| Campo      | Tipo   | Obrigatório |
+| ---------- | ------ | ----------- |
+| `username` | string | Sim         |
+| `password` | string | Sim         |
+
+### Funcionamento
+
+A senha recebida não é armazenada diretamente no banco.
+
+Antes de ser salva, ela é transformada em um hash utilizando `bcryptjs`.
+
+```text
+Senha
+  ↓
+bcrypt.hash()
+  ↓
+password_hash
+  ↓
+PostgreSQL
+```
+
+### Resposta de sucesso
+
+Status:
+
+```text
+201 Created
+```
+
+Resposta:
+
+```json
+{
+    "id": "uuid-gerado",
+    "username": "gabriel"
+}
+```
+
+### Usuário já existente
+
+Se o username já estiver cadastrado:
+
+```text
+409 Conflict
+```
+
+Resposta:
+
+```json
+{
+    "message": "Username already exists"
+}
+```
+
+### Dados obrigatórios ausentes
+
+```text
+400 Bad Request
+```
+
+Resposta:
+
+```json
+{
+    "message": "Username and password are required"
+}
+```
+
+---
+
+# Autenticação e login
+
+## `POST /login`
+
+Realiza a autenticação do usuário e retorna um token JWT.
+
+### Autenticação
+
+Não requer autenticação.
+
+### Requisição
+
+```http
+POST /login
+Content-Type: application/json
+```
+
+### Body
+
+```json
+{
+    "username": "gabriel",
+    "password": "123456"
+}
+```
+
+### Funcionamento
+
+O fluxo de autenticação é:
+
+```text
+Username + Password
+        ↓
+Busca usuário no PostgreSQL
+        ↓
+bcrypt.compare()
+        ↓
+Credenciais válidas?
+        ↓
+server.jwt.sign()
+        ↓
+JWT Token
+```
+
+### Resposta de sucesso
+
+Status:
+
+```text
+200 OK
+```
+
+Resposta:
+
+```json
+{
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+### Credenciais inválidas
+
+Status:
+
+```text
+401 Unauthorized
+```
+
+Resposta:
+
+```json
+{
+    "message": "Invalid credentials"
+}
+```
+
+### Dados obrigatórios ausentes
+
+Status:
+
+```text
+400 Bad Request
+```
+
+Resposta:
+
+```json
+{
+    "message": "Username and password are required"
+}
+```
+
+---
+
+# Autorização das rotas
+
+As rotas de todos exigem um JWT válido.
+
+Envie o token no header:
+
+```http
+Authorization: Bearer <TOKEN>
+```
+
+Exemplo:
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+Se o token não for válido, a API retorna:
+
+```text
+401 Unauthorized
+```
+
+```json
+{
+    "message": "Unauthorized"
+}
+```
+
+---
+
+# CRUD de todos
+
+## `POST /todos`
+
+Cria uma nova tarefa.
+
+### Autenticação
+
+JWT obrigatório.
+
+### Headers
+
+```http
+Content-Type: application/json
+Authorization: Bearer <TOKEN>
+```
+
+### Body
+
+```json
+{
+    "title": "Comprar leite",
+    "description": "Comprar leite integral no mercado.",
+    "completed": false
+}
+```
+
+### Resposta
+
+Status:
+
+```text
+201 Created
+```
+
+```json
+{
+    "id": "uuid-gerado"
+}
+```
+
+---
+
+## `GET /todos`
+
+Lista todas as tarefas.
+
+### Autenticação
+
+JWT obrigatório.
+
+### Requisição
+
+```http
+GET /todos
+Authorization: Bearer <TOKEN>
+```
+
+### Busca por título
+
+É possível utilizar o parâmetro `search`:
 
 ```http
 GET /todos?search=leite
+Authorization: Bearer <TOKEN>
 ```
 
-#### Resposta de sucesso
-
-Status: `200`
+### Resposta
 
 ```json
 [
-  {
-    "id": "uuid",
-    "title": "Comprar leite",
-    "description": "Comprar leite integral no mercado.",
-    "completed": false,
-    "created_at": "2026-08-12T00:00:00.000Z"
-  }
+    {
+        "id": "uuid",
+        "title": "Comprar leite",
+        "description": "Comprar leite integral no mercado.",
+        "completed": false,
+        "created_at": "2026-08-12T00:00:00.000Z"
+    }
 ]
 ```
 
 ---
 
-### `PUT /todos/:id`
+## `PUT /todos/:id`
 
-- Método: `PUT`
-- URL: `/todos/:id`
-- Objetivo: atualizar todo existente.
-- Autenticação: não.
-- Parâmetros de rota:
-  - `id`: UUID do todo.
+Atualiza uma tarefa existente.
 
-#### Body
+### Autenticação
+
+JWT obrigatório.
+
+### Requisição
+
+```http
+PUT /todos/<TODO_ID>
+Content-Type: application/json
+Authorization: Bearer <TOKEN>
+```
+
+### Body
 
 ```json
 {
-  "title": "Comprar leite",
-  "description": "Comprar leite integral no mercado.",
-  "completed": true
+    "title": "Comprar leite",
+    "description": "Comprar leite integral no mercado.",
+    "completed": true
 }
 ```
 
-#### Resposta de sucesso
+### Sucesso
 
-Status: `200`
+Status:
+
+```text
+200 OK
+```
 
 ```json
 {
-  "message": "Todo updated successfully!"
+    "message": "Todo updated successfully!"
 }
 ```
 
-#### Possíveis erros
+### Todo não encontrado
 
-- `404` se o todo não existir.
+Status:
 
-```json
-{
-  "message": "Todo not found"
-}
+```text
+404 Not Found
 ```
 
-- `500` em erro interno.
-
----
-
-### `DELETE /todos/:id`
-
-- Método: `DELETE`
-- URL: `/todos/:id`
-- Objetivo: remover todo.
-- Autenticação: não.
-- Parâmetros de rota:
-  - `id`: UUID do todo.
-
-#### Resposta de sucesso
-
-Status: `200`
-
 ```json
 {
-  "message": "Tod deleted successfully!"
-}
-```
-
-#### Possíveis erros
-
-- `500` em erro interno.
-
----
-
-## Autenticação e autorização
-
-A aplicação atual não implementa autenticação ou autorização. Todas as rotas são públicas.
-
----
-
-## CRUD de vídeos
-
-Os recursos implementados são:
-
-- `CREATE` — `POST /videos`
-- `READ` — `GET /videos`
-- `UPDATE` — `PUT /videos/:id`
-- `DELETE` — `DELETE /videos/:id`
-
-> Não há endpoint `GET /videos/:id` no projeto atual.
-
----
-
-## Códigos HTTP
-
-A API utiliza os seguintes códigos reais:
-
-- `200 OK` — sucesso em listagem, atualização e exclusão.
-- `201 Created` — vídeo criado.
-- `404 Not Found` — vídeo não encontrado em atualização.
-- `500 Internal Server Error` — erro de execução.
-
-> Os códigos `400`, `401`, `403`, `409` não são tratados explicitamente no código atual.
-
----
-
-## Tratamento de erros
-
-O tratamento de erros é simples. O código retorna mensagens com o formato padrão do Fastify ou as mensagens definidas no próprio endpoint.
-
-Exemplo de erro real:
-
-```json
-{
-  "message": "Video not found"
+    "message": "Todo not found"
 }
 ```
 
 ---
 
-## Exemplos de consumo
+## `DELETE /todos/:id`
 
-### cURL
+Exclui uma tarefa.
 
-#### Criar vídeo
+### Autenticação
+
+JWT obrigatório.
+
+### Requisição
+
+```http
+DELETE /todos/<TODO_ID>
+Authorization: Bearer <TOKEN>
+```
+
+### Resposta
+
+Status:
+
+```text
+200 OK
+```
+
+```json
+{
+    "message": "Todo deleted successfully!"
+}
+```
+
+---
+
+# Códigos HTTP
+
+A API utiliza os seguintes códigos:
+
+| Código | Significado                              |
+| ------ | ---------------------------------------- |
+| `200`  | Operação realizada com sucesso           |
+| `201`  | Recurso criado                           |
+| `400`  | Dados obrigatórios ausentes              |
+| `401`  | Não autenticado ou credenciais inválidas |
+| `404`  | Recurso não encontrado                   |
+| `409`  | Username já cadastrado                   |
+| `500`  | Erro interno do servidor                 |
+
+---
+
+# Tratamento de erros
+
+Os endpoints possuem respostas específicas para alguns erros.
+
+### Login
+
+```json
+{
+    "message": "Invalid credentials"
+}
+```
+
+### Autenticação
+
+```json
+{
+    "message": "Unauthorized"
+}
+```
+
+### Usuário já existente
+
+```json
+{
+    "message": "Username already exists"
+}
+```
+
+### Todo não encontrado
+
+```json
+{
+    "message": "Todo not found"
+}
+```
+
+---
+
+# Exemplos de consumo
+
+## Criar usuário
 
 ```bash
-curl -X POST http://localhost:3000/videos \
+curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "node",
-    "description": "This is a description of my first video.",
-    "duration": 120
+    "username": "gabriel",
+    "password": "123456"
   }'
 ```
 
-#### Listar vídeos
+---
+
+## Login
 
 ```bash
-curl http://localhost:3000/videos
-```
-
-#### Buscar vídeos
-
-```bash
-curl "http://localhost:3000/videos?search=node"
-```
-
-#### Atualizar vídeo
-
-```bash
-curl -X PUT http://localhost:3000/videos/<VIDEO_ID> \
+curl -X POST http://localhost:3000/login \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Updated Video Title",
-    "description": "This is an updated description.",
-    "duration": 150
+    "username": "gabriel",
+    "password": "123456"
   }'
 ```
 
-#### Excluir vídeo
+A resposta será:
 
-```bash
-curl -X DELETE http://localhost:3000/videos/<VIDEO_ID>
+```json
+{
+    "token": "SEU_TOKEN_JWT"
+}
 ```
 
-### JavaScript / Fetch
+---
+
+## Criar todo autenticado
+
+```bash
+curl -X POST http://localhost:3000/todos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -d '{
+    "title": "Comprar leite",
+    "description": "Comprar leite integral no mercado.",
+    "completed": false
+  }'
+```
+
+---
+
+## Listar todos
+
+```bash
+curl http://localhost:3000/todos \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+```
+
+---
+
+## Buscar todos
+
+```bash
+curl "http://localhost:3000/todos?search=leite" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+```
+
+---
+
+## Atualizar todo
+
+```bash
+curl -X PUT http://localhost:3000/todos/<TODO_ID> \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN_JWT" \
+  -d '{
+    "title": "Comprar leite",
+    "description": "Comprar leite integral no mercado.",
+    "completed": true
+  }'
+```
+
+---
+
+## Excluir todo
+
+```bash
+curl -X DELETE http://localhost:3000/todos/<TODO_ID> \
+  -H "Authorization: Bearer SEU_TOKEN_JWT"
+```
+
+---
+
+# JavaScript / Fetch
+
+### Criar usuário
 
 ```js
 const baseUrl = 'http://localhost:3000';
 
-async function createVideo(video) {
-  const response = await fetch(`${baseUrl}/videos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(video),
-  });
-  return response.json();
-}
+async function createUser(username, password) {
+    const response = await fetch(`${baseUrl}/users`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username,
+            password,
+        }),
+    });
 
-async function getVideos(search) {
-  const url = new URL(`${baseUrl}/videos`);
-  if (search) url.searchParams.set('search', search);
-  const response = await fetch(url);
-  return response.json();
+    return response.json();
 }
 ```
 
-> Axios não está presente no projeto atual.
+### Login
+
+```js
+async function login(username, password) {
+    const response = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username,
+            password,
+        }),
+    });
+
+    return response.json();
+}
+```
+
+### Listar todos autenticados
+
+```js
+async function getTodos(token, search) {
+    const url = new URL(`${baseUrl}/todos`);
+
+    if (search) {
+        url.searchParams.set('search', search);
+    }
+
+    const response = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    return response.json();
+}
+```
 
 ---
 
-## Testando a API
+# Testando a API
 
-### Usando o REST Client do VS Code
+## VS Code REST Client
 
-Abra o arquivo `routes.http` e envie cada bloco de requisição.
+O projeto possui um arquivo:
 
-### Usando Postman ou Insomnia
+```text
+routes.http
+```
 
-Crie as requisições para os endpoints:
+Nele estão disponíveis exemplos para:
 
-- `POST http://localhost:3000/videos`
-- `GET http://localhost:3000/videos`
-- `PUT http://localhost:3000/videos/:id`
-- `DELETE http://localhost:3000/videos/:id`
+* Criar usuário
+* Login
+* Criar todo
+* Listar todos
+* Buscar todos
+* Atualizar todo
+* Excluir todo
+
+### Fluxo recomendado
+
+Primeiro crie o usuário:
+
+```http
+POST http://localhost:3000/users
+```
+
+Depois faça login:
+
+```http
+POST http://localhost:3000/login
+```
+
+Copie o token retornado e utilize nas requisições protegidas:
+
+```http
+Authorization: Bearer <TOKEN>
+```
 
 ---
 
-## Testes automatizados
+## Postman ou Insomnia
 
-O projeto não possui testes automatizados configurados.
+Configure as seguintes requisições:
+
+```text
+POST   http://localhost:3000/users
+POST   http://localhost:3000/login
+
+POST   http://localhost:3000/todos
+GET    http://localhost:3000/todos
+GET    http://localhost:3000/todos?search=leite
+PUT    http://localhost:3000/todos/:id
+DELETE http://localhost:3000/todos/:id
+```
+
+As cinco últimas requisições precisam do JWT.
 
 ---
 
-## Segurança
+# Testes automatizados
+
+O projeto atualmente não possui testes automatizados configurados.
+
+Como melhoria futura, podem ser adicionados testes com:
+
+* Vitest
+* Jest
+* Fastify inject
+* Testcontainers
+
+---
+
+# Segurança
 
 ### Implementações atuais
 
-- Uso de variáveis de ambiente para a conexão com o banco.
-- SSL habilitado no cliente PostgreSQL (`rejectUnauthorized: false`).
+* Autenticação baseada em JWT.
+* Senhas protegidas com `bcryptjs`.
+* Credenciais do banco armazenadas em variáveis de ambiente.
+* Rotas de todos protegidas por JWT.
+* `username` possui restrição `UNIQUE` no PostgreSQL.
+* SSL habilitado na conexão PostgreSQL.
+
+### Fluxo da senha
+
+A senha nunca é armazenada diretamente:
+
+```text
+123456
+   ↓
+bcrypt.hash()
+   ↓
+$2a$10$...
+   ↓
+PostgreSQL
+```
+
+Durante o login:
+
+```text
+Senha informada
+      ↓
+bcrypt.compare()
+      ↓
+Hash armazenado
+      ↓
+Credenciais válidas
+      ↓
+JWT
+```
 
 ### Melhorias de segurança recomendadas
 
-- Adicionar validação de entrada com Zod ou Joi.
-- Implementar autenticação e autorização.
-- Validar e sanitizar dados do request.
-- Configurar CORS corretamente.
-- Adicionar rate limiting.
-- Adotar logging estruturado.
+* Remover o fallback `supersecret` em produção.
+* Utilizar um `JWT_SECRET` forte e aleatório.
+* Adicionar validação de entrada com Zod ou JSON Schema.
+* Adicionar rate limiting.
+* Configurar CORS.
+* Implementar expiração dos tokens.
+* Implementar refresh tokens.
+* Adicionar logging estruturado.
+* Não retornar informações sensíveis em mensagens de erro.
 
 ---
 
-## Banco de dados e queries
+# Banco de dados e queries
 
-A aplicação usa o cliente `postgres` para executar queries SQL diretamente.
+A aplicação utiliza o cliente `postgres` para executar SQL diretamente.
 
-### Operações reais
+## Usuários
 
-#### Listar vídeos
+### Buscar usuário pelo username
 
 ```sql
-SELECT id, title, description, duration, created_at
-FROM videos
+SELECT id, username, password_hash
+FROM users
+WHERE username = ${username}
+LIMIT 1
+```
+
+### Criar usuário
+
+```sql
+INSERT INTO users (id, username, password_hash)
+VALUES (${id}, ${username}, ${password_hash})
+RETURNING id, username
+```
+
+---
+
+## Todos
+
+### Listar todos
+
+```sql
+SELECT id, title, description, completed, created_at
+FROM todos
 ORDER BY created_at DESC
 ```
 
-#### Buscar vídeos
+### Buscar todos
 
 ```sql
-SELECT id, title, description, duration, created_at
-FROM videos
+SELECT id, title, description, completed, created_at
+FROM todos
 WHERE title ILIKE ${pattern}
 ORDER BY created_at DESC
 ```
 
-#### Inserir vídeo
+### Criar todo
 
 ```sql
-INSERT INTO videos (id, title, description, duration)
-VALUES (${id}, ${title}, ${description}, ${duration})
+INSERT INTO todos (id, title, description, completed)
+VALUES (${id}, ${title}, ${description}, ${completed})
 ```
 
-#### Atualizar vídeo
+### Atualizar todo
 
 ```sql
-UPDATE videos
+UPDATE todos
 SET title = ${title},
     description = ${description},
-    duration = ${duration}
+    completed = ${completed}
 WHERE id = ${id}
 ```
 
-#### Excluir vídeo
+### Excluir todo
 
 ```sql
-delete from videos
-where id = ${id}
+DELETE FROM todos
+WHERE id = ${id}
 ```
 
 ---
 
-## Deploy
+# Deploy
 
-O projeto não inclui configuração de deploy específica.
+A aplicação pode ser hospedada em serviços compatíveis com Node.js.
 
-### Sugestão de deploy
+Exemplo de produção:
 
-- Configure `DATABASE_URL` no ambiente de produção.
-- Configure `PORT` conforme necessário.
-- Execute `npm install`.
-- Execute `npm run migrate`.
-- Execute `npm start`.
+```text
+https://api-node-fastfy.onrender.com
+```
 
----
+Configure no ambiente de produção:
 
-## Fluxo da aplicação
+```env
+DATABASE_URL=...
+JWT_SECRET=...
+PORT=...
+```
 
-1. Cliente envia requisição HTTP.
-2. `server.js` recebe a requisição.
-3. A rota processa o corpo, parâmetros e query.
-4. A rota chama métodos em `DatabasePostgres`.
-5. `DatabasePostgres` executa a query no PostgreSQL.
-6. O servidor retorna a resposta ao cliente.
+### Deploy
 
----
+1. Instalar dependências:
 
-## Decisões arquiteturais
+```bash
+npm install
+```
 
-- Fastify é usado para criar um servidor HTTP leve.
-- `postgres` é usado como cliente SQL direto, sem ORM.
-- A lógica de banco está isolada em `database-postgres.js`.
-- O projeto adota migração SQL manual para criar a tabela.
-- Não há middleware de autenticação ou validação de entrada no estado atual.
+2. Configurar variáveis de ambiente.
 
----
+3. Iniciar a aplicação:
 
-## 🚀 Melhorias futuras
+```bash
+npm start
+```
 
-- Adicionar validação de dados com Zod/Joi.
-- Implementar Swagger/OpenAPI.
-- Escrever testes unitários e de integração.
-- Implementar autenticação JWT.
-- Adicionar refresh token.
-- Incluir rate limiting.
-- Configurar Docker.
-- Criar pipeline de CI/CD.
-- Adotar uma ferramenta de migrations dedicada.
-- Implementar paginação e filtros avançados.
-- Adicionar cache.
+A aplicação executa a inicialização das tabelas através de:
+
+```js
+await database.init();
+```
 
 ---
 
-## Checklist de execução
+# Fluxo da aplicação
 
-- [ ] Clonar o repositório
-- [ ] Entrar na pasta do projeto
-- [ ] Instalar dependências
-- [ ] Criar arquivo `.env`
-- [ ] Configurar `DATABASE_URL`
-- [ ] Executar `npm run migrate`
-- [ ] Iniciar a aplicação
-- [ ] Testar o endpoint `http://localhost:3000/videos`
+## Cadastro
+
+```text
+Cliente
+  ↓
+POST /users
+  ↓
+Fastify
+  ↓
+bcrypt.hash()
+  ↓
+PostgreSQL
+  ↓
+Usuário criado
+```
+
+## Login
+
+```text
+Cliente
+  ↓
+POST /login
+  ↓
+Fastify
+  ↓
+PostgreSQL
+  ↓
+bcrypt.compare()
+  ↓
+JWT
+  ↓
+Cliente
+```
+
+## Requisição autenticada
+
+```text
+Cliente
+  ↓
+Authorization: Bearer JWT
+  ↓
+Fastify
+  ↓
+jwtVerify()
+  ↓
+/todos
+  ↓
+PostgreSQL
+  ↓
+Resposta
+```
+
+---
+
+# Decisões arquiteturais
+
+* **Fastify** é utilizado como framework HTTP.
+* **PostgreSQL** é utilizado como banco de dados relacional.
+* O pacote `postgres` é utilizado para comunicação com o banco sem ORM.
+* A lógica de acesso ao banco está isolada em `database-postgres.js`.
+* O projeto utiliza SQL diretamente.
+* **JWT** é utilizado para autenticação.
+* **bcryptjs** é utilizado para armazenamento seguro das senhas.
+* As rotas protegidas utilizam um `preHandler` de autenticação.
+* As tabelas são inicializadas automaticamente através das migrations SQL.
+
+---
+
+# 🚀 Melhorias futuras
+
+* Adicionar validação de dados com Zod ou JSON Schema.
+* Implementar Swagger/OpenAPI.
+* Adicionar testes unitários e de integração.
+* Implementar refresh token.
+* Adicionar expiração de JWT.
+* Implementar rate limiting.
+* Configurar Docker.
+* Criar pipeline de CI/CD.
+* Adotar uma ferramenta de migrations dedicada.
+* Implementar paginação.
+* Adicionar filtros avançados.
+* Adicionar ordenação.
+* Adicionar relação entre usuários e todos.
+* Fazer cada usuário visualizar apenas seus próprios todos.
+* Adicionar recuperação de senha.
+* Adicionar roles e permissões.
+* Adicionar logs estruturados.
+
+---
+
+# Checklist de execução
+
+* [ ] Clonar o repositório
+* [ ] Entrar na pasta do projeto
+* [ ] Instalar dependências
+* [ ] Criar arquivo `.env`
+* [ ] Configurar `DATABASE_URL`
+* [ ] Configurar `JWT_SECRET`
+* [ ] Iniciar a aplicação
+* [ ] Criar um usuário através de `POST /users`
+* [ ] Fazer login através de `POST /login`
+* [ ] Copiar o JWT retornado
+* [ ] Enviar o JWT no header `Authorization`
+* [ ] Criar um todo
+* [ ] Listar os todos
+* [ ] Buscar um todo
+* [ ] Atualizar um todo
+* [ ] Excluir um todo
