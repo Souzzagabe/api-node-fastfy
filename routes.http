@@ -8,7 +8,7 @@ POST http://localhost:3000/users
 Content-Type: application/json
 
 {"username": "j",
-"username": "hoel",
+"username": "joelinton",
 "password": "123456"
 }
 
@@ -38,7 +38,7 @@ Content-Type: application/json
 
 POST http://localhost:3000/todos
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY1ODY1ODN9.F09Ep0nvjM-qjh1nufaiulva_IanX4w3w2ol4-8iNT0
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY2MjgxNDJ9.lTKcvssue2KtTGW7VLIvqCUgAbY7N0HSvKW4ipIufY0
 
 {
 "title": "Comprar leite",

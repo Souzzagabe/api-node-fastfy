@@ -1,112 +1,527 @@
 import Fastify from 'fastify';
 import fastifyJwt from '@fastify/jwt';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
 import bcrypt from 'bcryptjs';
-import { DatabasePostgres } from './database-postgres.js';
 
-const server = Fastify();
+import { DatabasePostgres } from './database-postgres.js';
+import {
+  swaggerOptions,
+  swaggerUiOptions,
+} from './swagger.js';
+
+import { schemas } from './schemas.js';
+
+const server = Fastify({
+  logger: true,
+
+  ajv: {
+    customOptions: {
+      strict: false,
+    },
+  },
+});
+
 const database = new DatabasePostgres();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+
+const JWT_SECRET =
+  process.env.JWT_SECRET || 'supersecret';
+
+/*
+|--------------------------------------------------------------------------
+| Plugins
+|--------------------------------------------------------------------------
+*/
 
 await server.register(fastifyJwt, {
   secret: JWT_SECRET,
 });
 
-server.decorate('authenticate', async function (request, reply) {
-  try {
-    await request.jwtVerify();
-  } catch (error) {
-    return reply.status(401).send({ message: 'Unauthorized' });
+await server.register(
+  fastifySwagger,
+  swaggerOptions
+);
+
+await server.register(
+  fastifySwaggerUi,
+  swaggerUiOptions
+);
+
+/*
+|--------------------------------------------------------------------------
+| Fastify Schemas
+|--------------------------------------------------------------------------
+*/
+
+for (const schema of Object.values(schemas)) {
+  server.addSchema(schema);
+}
+
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
+server.decorate(
+  'authenticate',
+  async function (request, reply) {
+    try {
+      await request.jwtVerify();
+    } catch (error) {
+      return reply.status(401).send({
+        message: 'Unauthorized',
+      });
+    }
   }
-});
+);
+
+/*
+|--------------------------------------------------------------------------
+| Database
+|--------------------------------------------------------------------------
+*/
 
 await database.init();
 await database.ensureAdminUser();
 
+/*
+|--------------------------------------------------------------------------
+| USERS
+|--------------------------------------------------------------------------
+*/
 
-server.post('/users', async (request, reply) => {
-    const { username, password } = request.body;
+server.post(
+  '/users',
+  {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Cria um novo usuário',
+      description:
+        'Cadastra um novo usuário informando username e password.',
 
-    console.log('username:', username);
-    console.log('password:', password);
+      body: {
+        $ref: 'CreateUser#',
+      },
+
+      response: {
+        201: {
+          $ref: 'UserResponse#',
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        409: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { username, password } =
+      request.body;
 
     if (!username || !password) {
-        return reply.status(400).send({
-            message: 'Username and password are required'
-        });
+      return reply.status(400).send({
+        message:
+          'Username and password are required',
+      });
     }
 
-    const existingUser = await database.findUserByUsername(username);
+    const existingUser =
+      await database.findUserByUsername(
+        username
+      );
 
     if (existingUser) {
-        return reply.status(409).send({
-            message: 'Username already exists'
-        });
+      return reply.status(409).send({
+        message:
+          'Username already exists',
+      });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash =
+      await bcrypt.hash(password, 10);
 
-    console.log('passwordHash:', passwordHash);
+    const user =
+      await database.createUser({
+        username,
+        password_hash: passwordHash,
+      });
 
-const user = await database.createUser({
-    username,
-    password_hash: passwordHash
-});
     return reply.status(201).send({
-        id: user.id,
-        username: user.username
+      id: user.id,
+      username: user.username,
     });
-});
-
-server.post('/login', async (request, reply) => {
-  const { username, password } = request.body;
-  if (!username || !password) {
-    return reply.status(400).send({ message: 'Username and password are required' });
   }
+);
 
-  const user = await database.findUserByUsername(username);
-  if (!user) {
-    return reply.status(401).send({ message: 'Invalid credentials' });
+/*
+|--------------------------------------------------------------------------
+| LOGIN
+|--------------------------------------------------------------------------
+*/
+
+server.post(
+  '/login',
+  {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Realiza login',
+      description:
+        'Autentica um usuário e retorna um token JWT.',
+
+      body: {
+        $ref: 'Login#',
+      },
+
+      response: {
+        200: {
+          $ref: 'LoginResponse#',
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { username, password } =
+      request.body;
+
+    if (!username || !password) {
+      return reply.status(400).send({
+        message:
+          'Username and password are required',
+      });
+    }
+
+    const user =
+      await database.findUserByUsername(
+        username
+      );
+
+    if (!user) {
+      return reply.status(401).send({
+        message: 'Invalid credentials',
+      });
+    }
+
+    const passwordMatches =
+      await bcrypt.compare(
+        password,
+        user.password_hash
+      );
+
+    if (!passwordMatches) {
+      return reply.status(401).send({
+        message: 'Invalid credentials',
+      });
+    }
+
+    const token = server.jwt.sign({
+      userId: user.id,
+      username: user.username,
+    });
+
+    return reply.send({
+      token,
+    });
   }
+);
 
-  const passwordMatches = await bcrypt.compare(password, user.password_hash);
-  if (!passwordMatches) {
-    return reply.status(401).send({ message: 'Invalid credentials' });
+/*
+|--------------------------------------------------------------------------
+| CREATE TODO
+|--------------------------------------------------------------------------
+*/
+
+server.post(
+  '/todos',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Todos'],
+      summary: 'Cria uma tarefa',
+      description:
+        'Cria uma nova tarefa. Requer autenticação.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      body: {
+        $ref: 'CreateTodo#',
+      },
+
+      response: {
+        201: {
+          $ref: 'CreatedResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const {
+      title,
+      description,
+      completed = false,
+    } = request.body;
+
+    const id = await database.create({
+      title,
+      description,
+      completed,
+    });
+
+    return reply.status(201).send({
+      id,
+    });
   }
+);
 
-  const token = server.jwt.sign({ userId: user.id, username: user.username });
-  return reply.send({ token });
-});
+/*
+|--------------------------------------------------------------------------
+| LIST TODOS
+|--------------------------------------------------------------------------
+*/
 
-server.post('/todos', { preHandler: [server.authenticate] }, async (request, reply) => {
-  const { title, description, completed = false } = request.body;
-  const id = await database.create({ title, description, completed });
-  return reply.status(201).send({ id });
-});
+server.get(
+  '/todos',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
 
-server.get('/todos', { preHandler: [server.authenticate] }, async (request, reply) => {
-  const { search } = request.query;
-  const todos = await database.list(search);
-  return reply.send(todos);
-});
+    schema: {
+      tags: ['Todos'],
+      summary: 'Lista todos',
+      description:
+        'Retorna todas as tarefas cadastradas.',
 
-server.put('/todos/:id', { preHandler: [server.authenticate] }, async (request, reply) => {
-  const todoId = request.params.id;
-  const { title, description, completed = false } = request.body;
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
 
-  const ok = await database.update(todoId, { title, description, completed });
-  if (!ok) {
-    return reply.status(404).send({ message: 'Todo not found' });
+      querystring: {
+        type: 'object',
+
+        properties: {
+          search: {
+            type: 'string',
+            description:
+              'Filtra tarefas pelo título',
+          },
+        },
+      },
+
+      response: {
+        200: {
+          type: 'array',
+
+          items: {
+            $ref: 'Todo#',
+          },
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { search } =
+      request.query;
+
+    const todos =
+      await database.list(search);
+
+    return reply.send(todos);
   }
-  return reply.status(200).send({ message: 'Todo updated successfully!' });
-});
+);
 
-server.delete('/todos/:id', { preHandler: [server.authenticate] }, async (request, reply) => {
-  const { id } = request.params;
-  await database.delete(id);
-  return reply.status(200).send({ message: 'Todo deleted successfully!' });
-});
+/*
+|--------------------------------------------------------------------------
+| UPDATE TODO
+|--------------------------------------------------------------------------
+*/
 
-const PORT = process.env.PORT || 3000;
+server.put(
+  '/todos/:id',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Todos'],
+      summary: 'Atualiza uma tarefa',
+      description:
+        'Atualiza uma tarefa existente pelo ID.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['id'],
+      },
+
+      body: {
+        $ref: 'CreateTodo#',
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { id } =
+      request.params;
+
+    const {
+      title,
+      description,
+      completed = false,
+    } = request.body;
+
+    const ok =
+      await database.update(id, {
+        title,
+        description,
+        completed,
+      });
+
+    if (!ok) {
+      return reply.status(404).send({
+        message: 'Todo not found',
+      });
+    }
+
+    return reply.status(200).send({
+      message:
+        'Todo updated successfully!',
+    });
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| DELETE TODO
+|--------------------------------------------------------------------------
+*/
+
+server.delete(
+  '/todos/:id',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Todos'],
+      summary: 'Remove uma tarefa',
+      description:
+        'Remove uma tarefa existente pelo ID.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['id'],
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { id } =
+      request.params;
+
+    await database.delete(id);
+
+    return reply.status(200).send({
+      message:
+        'Todo deleted successfully!',
+    });
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Server
+|--------------------------------------------------------------------------
+*/
+
+const PORT =
+  process.env.PORT || 3000;
 
 try {
   await server.listen({
@@ -114,7 +529,13 @@ try {
     host: '0.0.0.0',
   });
 
-  console.log(`Server running on port ${PORT}`);
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
+  console.log(
+    `Swagger docs disponíveis em http://localhost:${PORT}/docs`
+  );
 } catch (error) {
   server.log.error(error);
   process.exit(1);
