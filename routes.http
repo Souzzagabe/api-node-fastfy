@@ -96,7 +96,7 @@ POST https://api-node-fastfy.onrender.com/users
 Content-Type: application/json
 
 {
-"username": "gabriel",
+"username": "gabriel Souza",
 "password": "123456"
 }
 
@@ -126,7 +126,7 @@ Content-Type: application/json
 
 POST https://api-node-fastfy.onrender.com/todos
 Content-Type: application/json
-Authorization: Bearer <TOKEN_PROD>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY3MzgxMTV9.TUR9tzJxoCzyNCjcKABgcezqIxODzjCYXDw88ixDEWc
 
 {
 "title": "Comprar leite",
@@ -143,7 +143,7 @@ Authorization: Bearer <TOKEN_PROD>
 ### ============================
 
 GET https://api-node-fastfy.onrender.com/todos?search=leite
-Authorization: Bearer <TOKEN_PROD>
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY3MzgxMTV9.TUR9tzJxoCzyNCjcKABgcezqIxODzjCYXDw88ixDEWc
 
 ###
 

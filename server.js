@@ -1,65 +1,96 @@
-import Fastify from 'fastify';
-import fastifyJwt from '@fastify/jwt';
-import fastifySwagger from '@fastify/swagger';
-import fastifySwaggerUi from '@fastify/swagger-ui';
-import bcrypt from 'bcryptjs';
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import fastifyJwt from '@fastify/jwt'
+import fastifySwagger from '@fastify/swagger'
+import fastifySwaggerUi from '@fastify/swagger-ui'
+import fastifyCookie from '@fastify/cookie'
+import bcrypt from 'bcryptjs'
 
-import { DatabasePostgres } from './database-postgres.js';
+import { DatabasePostgres } from './database-postgres.js'
+
 import {
   swaggerOptions,
   swaggerUiOptions,
-} from './swagger.js';
+} from './swagger.js'
 
-import { schemas } from './schemas.js';
+import { schemas } from './schemas.js'
 
 const server = Fastify({
   logger: true,
+})
 
-  ajv: {
-    customOptions: {
-      strict: false,
-    },
-  },
-});
-
-const database = new DatabasePostgres();
+const database = new DatabasePostgres()
 
 const JWT_SECRET =
-  process.env.JWT_SECRET || 'supersecret';
+  process.env.JWT_SECRET || 'supersecret'
 
 /*
 |--------------------------------------------------------------------------
-| Plugins
+| CORS
+|--------------------------------------------------------------------------
+*/
+
+await server.register(cors, {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://vue-dashboard-lovat.vercel.app',
+  ],
+  credentials: true,
+})
+
+/*
+|--------------------------------------------------------------------------
+| COOKIE
+|--------------------------------------------------------------------------
+*/
+
+await server.register(fastifyCookie)
+
+/*
+|--------------------------------------------------------------------------
+| JWT
 |--------------------------------------------------------------------------
 */
 
 await server.register(fastifyJwt, {
   secret: JWT_SECRET,
-});
 
-await server.register(
-  fastifySwagger,
-  swaggerOptions
-);
-
-await server.register(
-  fastifySwaggerUi,
-  swaggerUiOptions
-);
+  cookie: {
+    cookieName: 'token',
+    signed: false,
+  },
+})
 
 /*
 |--------------------------------------------------------------------------
-| Fastify Schemas
+| SWAGGER
+|--------------------------------------------------------------------------
+*/
+
+await server.register(
+  fastifySwagger,
+  swaggerOptions,
+)
+
+await server.register(
+  fastifySwaggerUi,
+  swaggerUiOptions,
+)
+
+/*
+|--------------------------------------------------------------------------
+| FASTIFY SCHEMAS
 |--------------------------------------------------------------------------
 */
 
 for (const schema of Object.values(schemas)) {
-  server.addSchema(schema);
+  server.addSchema(schema)
 }
 
 /*
 |--------------------------------------------------------------------------
-| Authentication
+| AUTHENTICATION
 |--------------------------------------------------------------------------
 */
 
@@ -67,23 +98,23 @@ server.decorate(
   'authenticate',
   async function (request, reply) {
     try {
-      await request.jwtVerify();
+      await request.jwtVerify()
     } catch (error) {
       return reply.status(401).send({
         message: 'Unauthorized',
-      });
+      })
     }
-  }
-);
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
-| Database
+| DATABASE
 |--------------------------------------------------------------------------
 */
 
-await database.init();
-await database.ensureAdminUser();
+await database.init()
+await database.ensureAdminUser()
 
 /*
 |--------------------------------------------------------------------------
@@ -121,43 +152,40 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username, password } =
-      request.body;
+    const { username, password } = request.body
 
     if (!username || !password) {
       return reply.status(400).send({
         message:
           'Username and password are required',
-      });
+      })
     }
 
     const existingUser =
-      await database.findUserByUsername(
-        username
-      );
+      await database.findUserByUsername(username)
 
     if (existingUser) {
       return reply.status(409).send({
         message:
           'Username already exists',
-      });
+      })
     }
 
     const passwordHash =
-      await bcrypt.hash(password, 10);
+      await bcrypt.hash(password, 10)
 
     const user =
       await database.createUser({
         username,
         password_hash: passwordHash,
-      });
+      })
 
     return reply.status(201).send({
       id: user.id,
       username: user.username,
-    });
-  }
-);
+    })
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
@@ -172,7 +200,7 @@ server.post(
       tags: ['Auth'],
       summary: 'Realiza login',
       description:
-        'Autentica um usuário e retorna um token JWT.',
+        'Autentica um usuário e armazena o token JWT em um cookie HttpOnly.',
 
       body: {
         $ref: 'Login#',
@@ -195,49 +223,138 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username, password } =
-      request.body;
+    const { username, password } = request.body
 
     if (!username || !password) {
       return reply.status(400).send({
         message:
           'Username and password are required',
-      });
+      })
     }
 
     const user =
-      await database.findUserByUsername(
-        username
-      );
+      await database.findUserByUsername(username)
 
     if (!user) {
       return reply.status(401).send({
         message: 'Invalid credentials',
-      });
+      })
     }
 
     const passwordMatches =
       await bcrypt.compare(
         password,
-        user.password_hash
-      );
+        user.password_hash,
+      )
 
     if (!passwordMatches) {
       return reply.status(401).send({
         message: 'Invalid credentials',
-      });
+      })
     }
 
     const token = server.jwt.sign({
       userId: user.id,
       username: user.username,
-    });
+    })
+
+    reply.setCookie('token', token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      maxAge: 60 * 60 * 24,
+    })
 
     return reply.send({
-      token,
-    });
-  }
-);
+      message: 'Login realizado com sucesso',
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| ME
+|--------------------------------------------------------------------------
+*/
+
+server.get(
+  '/me',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Auth'],
+      summary: 'Retorna o usuário autenticado',
+
+      response: {
+        200: {
+          type: 'object',
+
+          properties: {
+            id: {
+              type: 'string',
+            },
+
+            username: {
+              type: 'string',
+            },
+          },
+
+          required: [
+            'id',
+            'username',
+          ],
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    return reply.send({
+      id: request.user.userId,
+      username: request.user.username,
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| LOGOUT
+|--------------------------------------------------------------------------
+*/
+
+server.post(
+  '/logout',
+  {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Realiza logout',
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    reply.clearCookie('token', {
+      path: '/',
+    })
+
+    return reply.send({
+      message: 'Logout realizado com sucesso',
+    })
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
@@ -285,19 +402,19 @@ server.post(
       title,
       description,
       completed = false,
-    } = request.body;
+    } = request.body
 
     const id = await database.create({
       title,
       description,
       completed,
-    });
+    })
 
     return reply.status(201).send({
       id,
-    });
-  }
-);
+    })
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
@@ -353,15 +470,14 @@ server.get(
   },
 
   async (request, reply) => {
-    const { search } =
-      request.query;
+    const { search } = request.query
 
     const todos =
-      await database.list(search);
+      await database.list(search)
 
-    return reply.send(todos);
-  }
-);
+    return reply.send(todos)
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
@@ -422,34 +538,33 @@ server.put(
   },
 
   async (request, reply) => {
-    const { id } =
-      request.params;
+    const { id } = request.params
 
     const {
       title,
       description,
       completed = false,
-    } = request.body;
+    } = request.body
 
     const ok =
       await database.update(id, {
         title,
         description,
         completed,
-      });
+      })
 
     if (!ok) {
       return reply.status(404).send({
         message: 'Todo not found',
-      });
+      })
     }
 
     return reply.status(200).send({
       message:
         'Todo updated successfully!',
-    });
-  }
-);
+    })
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
@@ -502,41 +617,40 @@ server.delete(
   },
 
   async (request, reply) => {
-    const { id } =
-      request.params;
+    const { id } = request.params
 
-    await database.delete(id);
+    await database.delete(id)
 
     return reply.status(200).send({
       message:
         'Todo deleted successfully!',
-    });
-  }
-);
+    })
+  },
+)
 
 /*
 |--------------------------------------------------------------------------
-| Server
+| SERVER
 |--------------------------------------------------------------------------
 */
 
 const PORT =
-  process.env.PORT || 3000;
+  process.env.PORT || 3000
 
 try {
   await server.listen({
     port: PORT,
     host: '0.0.0.0',
-  });
+  })
 
   console.log(
-    `Server running on port ${PORT}`
-  );
+    `Server running on port ${PORT}`,
+  )
 
   console.log(
-    `Swagger docs disponíveis em http://localhost:${PORT}/docs`
-  );
+    `Swagger docs disponíveis em http://localhost:${PORT}/docs`,
+  )
 } catch (error) {
-  server.log.error(error);
-  process.exit(1);
+  server.log.error(error)
+  process.exit(1)
 }
