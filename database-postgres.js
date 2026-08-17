@@ -155,7 +155,7 @@ export class DatabasePostgres {
     const id = randomUUID();
     await this.sql`
       INSERT INTO todos (id, list_id, title, description, completed)
-      VALUES (${id}, ${list_id}, ${title}, ${description}, ${completed})
+      VALUES (${id}, ${list_id}, ${title}, ${description ?? null}, ${completed})
     `;
     return id;
   }
@@ -194,7 +194,7 @@ export class DatabasePostgres {
     const result = await this.sql`
       UPDATE todos
       SET title = ${title},
-          description = ${description},
+          description = ${description ?? null},
           completed = ${completed}
       WHERE id = ${id}
     `;

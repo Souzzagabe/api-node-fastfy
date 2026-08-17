@@ -127,7 +127,7 @@ Authorization: Bearer {{token}}
 
 {
   "title": "Comprar leite",
-  "description": "Comprar leite integral no mercado.",
+  "description": "Comprar leite integral no mercadosss.",
   "completed": false
 }
 
