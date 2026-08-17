@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS todos (
+  id UUID PRIMARY KEY,
+  list_id UUID NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_todos_list_id ON todos(list_id);

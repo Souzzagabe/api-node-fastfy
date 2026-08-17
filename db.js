@@ -8,8 +8,11 @@ import { randomUUID } from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const migrationsDir = path.join(__dirname, 'migrations');
-const createTodosSql = fs.readFileSync(path.join(migrationsDir, '001-create-todos-table.sql'), 'utf8');
-const createUsersSql = fs.readFileSync(path.join(migrationsDir, '002-create-users-table.sql'), 'utf8');
+
+// Ordem importa: users -> lists -> todos (por causa das FKs)
+const createUsersSql = fs.readFileSync(path.join(migrationsDir, '001-create-users-table.sql'), 'utf8');
+const createListsSql = fs.readFileSync(path.join(migrationsDir, '002-create-lists-table.sql'), 'utf8');
+const createTodosSql = fs.readFileSync(path.join(migrationsDir, '003-create-todos-table.sql'), 'utf8');
 
 const sql = postgres(process.env.DATABASE_URL, {
   ssl: {
@@ -18,37 +21,78 @@ const sql = postgres(process.env.DATABASE_URL, {
 });
 
 export async function initDatabase() {
-  await sql.unsafe(createTodosSql);
   await sql.unsafe(createUsersSql);
+  await sql.unsafe(createListsSql);
+  await sql.unsafe(createTodosSql);
 }
 
 export async function closeDatabase() {
   await sql.end();
 }
 
-export async function listTodos(search) {
-  if (search) {
-    const pattern = `%${search}%`;
+/*
+|--------------------------------------------------------------------------
+| LISTS
+|--------------------------------------------------------------------------
+*/
+
+export async function createList({ user_id, name }) {
+  const id = randomUUID();
+  await sql`
+    INSERT INTO lists (id, user_id, name)
+    VALUES (${id}, ${user_id}, ${name})
+  `;
+  return id;
+}
+
+export async function listLists({ userId, role }) {
+  if (role === 'admin') {
     return sql`
-      SELECT id, title, description, completed, created_at
-      FROM todos
-      WHERE title ILIKE ${pattern}
+      SELECT id, user_id, name, created_at
+      FROM lists
       ORDER BY created_at DESC
     `;
   }
 
   return sql`
-    SELECT id, title, description, completed, created_at
-    FROM todos
+    SELECT id, user_id, name, created_at
+    FROM lists
+    WHERE user_id = ${userId}
     ORDER BY created_at DESC
   `;
 }
 
-export async function createTodo({ title, description, completed = false }) {
+/*
+|--------------------------------------------------------------------------
+| TODOS (sempre vinculados a uma lista)
+|--------------------------------------------------------------------------
+*/
+
+export async function listTodos(list_id, search) {
+  if (search) {
+    const pattern = `%${search}%`;
+    return sql`
+      SELECT id, list_id, title, description, completed, created_at
+      FROM todos
+      WHERE list_id = ${list_id}
+        AND title ILIKE ${pattern}
+      ORDER BY created_at DESC
+    `;
+  }
+
+  return sql`
+    SELECT id, list_id, title, description, completed, created_at
+    FROM todos
+    WHERE list_id = ${list_id}
+    ORDER BY created_at DESC
+  `;
+}
+
+export async function createTodo({ list_id, title, description, completed = false }) {
   const id = randomUUID();
   await sql`
-    INSERT INTO todos (id, title, description, completed)
-    VALUES (${id}, ${title}, ${description}, ${completed})
+    INSERT INTO todos (id, list_id, title, description, completed)
+    VALUES (${id}, ${list_id}, ${title}, ${description}, ${completed})
   `;
   return id;
 }

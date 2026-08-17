@@ -50,6 +50,11 @@ export const schemas = {
       username: {
         type: 'string',
       },
+
+      role: {
+        type: 'string',
+        enum: ['admin', 'user'],
+      },
     },
 
     required: [
@@ -93,6 +98,48 @@ export const schemas = {
     required: ['message'],
   },
 
+  CreateList: {
+    $id: 'CreateList',
+
+    type: 'object',
+
+    required: ['name'],
+
+    properties: {
+      name: {
+        type: 'string',
+        minLength: 1,
+      },
+    },
+  },
+
+  List: {
+    $id: 'List',
+
+    type: 'object',
+
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+
+      user_id: {
+        type: 'string',
+        format: 'uuid',
+      },
+
+      name: {
+        type: 'string',
+      },
+
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+
   CreateTodo: {
     $id: 'CreateTodo',
 
@@ -123,6 +170,11 @@ export const schemas = {
 
     properties: {
       id: {
+        type: 'string',
+        format: 'uuid',
+      },
+
+      list_id: {
         type: 'string',
         format: 'uuid',
       },

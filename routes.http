@@ -1,175 +1,166 @@
-### ============================
+@baseUrl = http://localhost:3000
+### Para testar em produção, comente a linha acima e descomente a de baixo:
+# @baseUrl = https://api-node-fastfy.onrender.com
 
-### LOCALHOST - CREATE USER
-
-### ============================
-
-POST http://localhost:3000/users
-Content-Type: application/json
-
-{"username": "j",
-"username": "joelinton",
-"password": "123456"
-}
-
-###
+### Depois de logar (rota LOGIN), cole o token retornado aqui:
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwZWI5YmY2OS1lNmNiLTQ4YjctYTdhYS01NzM4ZWFmOTYzYzAiLCJ1c2VybmFtZSI6ImpvZWxpbnRvbiIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzg2ODEyMjQxfQ.SLOg999MjYK1-AtPzzt1W5GmIHD3Nuoanejz1mBgjXI
+@listId = cc1fdd1e-1d78-4abb-9bf6-d749e790f3e7
+@todoId = 393661ae-f93a-4bb1-84c6-64d784f1691c
 
 ### ============================
-
-### LOCALHOST - LOGIN
-
+### AUTH - CREATE USER
+### Sempre criado com role "user". O admin (username "admin", senha "123456")
+### já existe automaticamente (seed feito no boot do servidor).
 ### ============================
 
-POST http://localhost:3000/login
+POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-"username": "gabriel",
-"password": "123456"
+  "username": "joelinton",
+  "password": "123456"
 }
 
 ###
 
 ### ============================
-
-### LOCALHOST - CREATE TODO
-
+### AUTH - LOGIN (usuário comum)
 ### ============================
 
-POST http://localhost:3000/todos
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY2MjgxNDJ9.lTKcvssue2KtTGW7VLIvqCUgAbY7N0HSvKW4ipIufY0
-
-{
-"title": "Comprar leite",
-"description": "Comprar leite integral no mercado.",
-"completed": false
-}
-
-###
-
-### ============================
-
-### LOCALHOST - LIST TODOS
-
-### ============================
-
-GET http://localhost:3000/todos
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY1ODY1ODN9.F09Ep0nvjM-qjh1nufaiulva_IanX4w3w2ol4-8iNT0
-
-###
-
-### ============================
-
-### LOCALHOST - UPDATE TODO
-
-### ============================
-
-PUT http://localhost:3000/todos/3153f61f-d70e-4823-8e37-8e93aca02f40
-Content-Type: application/json
-Authorization: Bearer <TOKEN_LOCAL>
-
-{
-"title": "Comprar leite",
-"description": "Comprar leite integral no mercado.",
-"completed": true
-}
-
-###
-
-### ============================
-
-### LOCALHOST - DELETE TODO
-
-### ============================
-
-DELETE http://localhost:3000/todos/a44f3f71-a59b-451a-a4e0-762f12246f6a
-Authorization: Bearer <TOKEN_LOCAL>
-
-### ============================================================
-
-### PRODUÇÃO - CREATE USER
-
-### ============================================================
-
-POST https://api-node-fastfy.onrender.com/users
+POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
-"username": "gabriel Souza",
-"password": "123456"
+  "username": "joelinton",
+  "password": "123456"
 }
 
 ###
 
-### ============================================================
+### ============================
+### AUTH - LOGIN (admin)
+### ============================
 
-### PRODUÇÃO - LOGIN
-
-### ============================================================
-
-POST https://api-node-fastfy.onrender.com/login
+POST {{baseUrl}}/login
 Content-Type: application/json
 
 {
-"username": "gabriel",
-"password": "123456"
+  "username": "admin",
+  "password": "123456"
 }
 
 ###
 
 ### ============================
-
-### PRODUÇÃO - CREATE TODO
-
+### AUTH - ME
 ### ============================
 
-POST https://api-node-fastfy.onrender.com/todos
+GET {{baseUrl}}/me
+Authorization: Bearer {{token}}
+
+###
+
+### ============================
+### AUTH - LOGOUT
+### ============================
+
+POST {{baseUrl}}/logout
+
+###
+
+### ============================
+### LISTS - CREATE
+### ============================
+
+POST {{baseUrl}}/lists
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY3MzgxMTV9.TUR9tzJxoCzyNCjcKABgcezqIxODzjCYXDw88ixDEWc
+Authorization: Bearer {{token}}
 
 {
-"title": "Comprar leite",
-"description": "Comprar leite integral no mercado.",
-"completed": false
+  "name": "Compras da semana 2"
 }
 
 ###
 
 ### ============================
-
-### PRODUÇÃO - LIST TODOS
-
+### LISTS - LIST
+### Usuário comum: só vê as próprias listas.
+### Admin: vê as listas de todos os usuários.
 ### ============================
 
-GET https://api-node-fastfy.onrender.com/todos?search=leite
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2MDU5M2QwYS0wZjlmLTRjZDUtYjY5Ni0xYmY4NWJkMDZkOGQiLCJ1c2VybmFtZSI6ImdhYnJpZWwiLCJpYXQiOjE3ODY3MzgxMTV9.TUR9tzJxoCzyNCjcKABgcezqIxODzjCYXDw88ixDEWc
+GET {{baseUrl}}/lists
+Authorization: Bearer {{token}}
 
 ###
 
 ### ============================
-
-### PRODUÇÃO - UPDATE TODO
-
+### LISTS - UPDATE
 ### ============================
 
-PUT https://api-node-fastfy.onrender.com/todos/3153f61f-d70e-4823-8e37-8e93aca02f40
+PUT {{baseUrl}}/lists/{{listId}}
 Content-Type: application/json
-Authorization: Bearer <TOKEN_PROD>
+Authorization: Bearer {{token}}
 
 {
-"title": "Comprar leite",
-"description": "Comprar leite integral no mercado.",
-"completed": true
+  "name": "Compras do mês"
 }
 
 ###
 
 ### ============================
-
-### PRODUÇÃO - DELETE TODO
-
+### LISTS - DELETE
+### (apaga a lista e todos os seus todos, por causa do cascade)
 ### ============================
 
-DELETE https://api-node-fastfy.onrender.com/todos/a44f3f71-a59b-451a-a4e0-762f12246f6a
-Authorization: Bearer <TOKEN_PROD>
+DELETE {{baseUrl}}/lists/{{listId}}
+Authorization: Bearer {{token}}
+
+###
+
+### ============================
+### TODOS - CREATE (dentro de uma lista)
+### ============================
+
+POST {{baseUrl}}/lists/{{listId}}/todos
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": false
+}
+
+###
+
+### ============================
+### TODOS - LIST (de uma lista, com filtro opcional)
+### ============================
+
+GET {{baseUrl}}/lists/{{listId}}/todos?search=leite
+Authorization: Bearer {{token}}
+
+###
+
+### ============================
+### TODOS - UPDATE
+### ============================
+
+PUT {{baseUrl}}/lists/{{listId}}/todos/{{todoId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Comprar leite",
+  "description": "Comprar leite integral no mercado.",
+  "completed": true
+}
+
+###
+
+### ============================
+### TODOS - DELETE
+### ============================
+
+DELETE {{baseUrl}}/lists/{{listId}}/todos/{{todoId}}
+Authorization: Bearer {{token}}

@@ -109,6 +109,36 @@ server.decorate(
 
 /*
 |--------------------------------------------------------------------------
+| AUTHORIZATION HELPERS
+|--------------------------------------------------------------------------
+| admin: acessa qualquer lista / todo
+| user : acessa apenas o que pertence a ele
+*/
+
+function isAdmin(request) {
+  return request.user.role === 'admin'
+}
+
+async function getListOrDeny(request, reply, listId) {
+  const list = await database.findListById(listId)
+
+  if (!list) {
+    reply.status(404).send({ message: 'List not found' })
+    return null
+  }
+
+  const owns = list.user_id === request.user.userId
+
+  if (!owns && !isAdmin(request)) {
+    reply.status(403).send({ message: 'Forbidden' })
+    return null
+  }
+
+  return list
+}
+
+/*
+|--------------------------------------------------------------------------
 | DATABASE
 |--------------------------------------------------------------------------
 */
@@ -129,7 +159,7 @@ server.post(
       tags: ['Auth'],
       summary: 'Cria um novo usuário',
       description:
-        'Cadastra um novo usuário informando username e password.',
+        'Cadastra um novo usuário informando username e password. O usuário criado sempre recebe role "user"; a role "admin" é reservada ao usuário seed.',
 
       body: {
         $ref: 'CreateUser#',
@@ -178,11 +208,13 @@ server.post(
       await database.createUser({
         username,
         password_hash: passwordHash,
+        role: 'user',
       })
 
     return reply.status(201).send({
       id: user.id,
       username: user.username,
+      role: user.role,
     })
   },
 )
@@ -200,7 +232,7 @@ server.post(
       tags: ['Auth'],
       summary: 'Realiza login',
       description:
-        'Autentica um usuário e armazena o token JWT em um cookie HttpOnly.',
+        'Autentica um usuário e armazena o token JWT (com id e role) em um cookie HttpOnly.',
 
       body: {
         $ref: 'Login#',
@@ -256,6 +288,7 @@ server.post(
     const token = server.jwt.sign({
       userId: user.id,
       username: user.username,
+      role: user.role,
     })
 
     reply.setCookie('token', token, {
@@ -301,11 +334,16 @@ server.get(
             username: {
               type: 'string',
             },
+
+            role: {
+              type: 'string',
+            },
           },
 
           required: [
             'id',
             'username',
+            'role',
           ],
         },
 
@@ -320,6 +358,7 @@ server.get(
     return reply.send({
       id: request.user.userId,
       username: request.user.username,
+      role: request.user.role,
     })
   },
 )
@@ -358,22 +397,22 @@ server.post(
 
 /*
 |--------------------------------------------------------------------------
-| CREATE TODO
+| CREATE LIST
 |--------------------------------------------------------------------------
 */
 
 server.post(
-  '/todos',
+  '/lists',
   {
     preHandler: [
       server.authenticate,
     ],
 
     schema: {
-      tags: ['Todos'],
-      summary: 'Cria uma tarefa',
+      tags: ['Lists'],
+      summary: 'Cria uma lista',
       description:
-        'Cria uma nova tarefa. Requer autenticação.',
+        'Cria uma nova lista pertencente ao usuário autenticado.',
 
       security: [
         {
@@ -382,7 +421,7 @@ server.post(
       ],
 
       body: {
-        $ref: 'CreateTodo#',
+        $ref: 'CreateList#',
       },
 
       response: {
@@ -398,13 +437,293 @@ server.post(
   },
 
   async (request, reply) => {
+    const { name } = request.body
+
+    const id = await database.createList({
+      user_id: request.user.userId,
+      name,
+    })
+
+    return reply.status(201).send({ id })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| LIST LISTS
+|--------------------------------------------------------------------------
+*/
+
+server.get(
+  '/lists',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Lists'],
+      summary: 'Lista as listas',
+      description:
+        'Admin vê todas as listas de todos os usuários. Usuário comum vê apenas as suas próprias listas.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      response: {
+        200: {
+          type: 'array',
+
+          items: {
+            $ref: 'List#',
+          },
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const lists = await database.listLists({
+      userId: request.user.userId,
+      role: request.user.role,
+    })
+
+    return reply.send(lists)
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| UPDATE LIST
+|--------------------------------------------------------------------------
+*/
+
+server.put(
+  '/lists/:id',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Lists'],
+      summary: 'Atualiza uma lista',
+      description:
+        'Atualiza o nome de uma lista. Admin pode atualizar qualquer lista; usuário comum apenas as suas.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['id'],
+      },
+
+      body: {
+        $ref: 'CreateList#',
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { id } = request.params
+    const { name } = request.body
+
+    const list = await getListOrDeny(request, reply, id)
+    if (!list) return
+
+    await database.updateList(id, { name })
+
+    return reply.status(200).send({
+      message: 'List updated successfully!',
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| DELETE LIST
+|--------------------------------------------------------------------------
+*/
+
+server.delete(
+  '/lists/:id',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Lists'],
+      summary: 'Remove uma lista',
+      description:
+        'Remove uma lista e todos os seus todos (cascade). Admin pode remover qualquer lista; usuário comum apenas as suas.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['id'],
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { id } = request.params
+
+    const list = await getListOrDeny(request, reply, id)
+    if (!list) return
+
+    await database.deleteList(id)
+
+    return reply.status(200).send({
+      message: 'List deleted successfully!',
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| CREATE TODO (dentro de uma lista)
+|--------------------------------------------------------------------------
+*/
+
+server.post(
+  '/lists/:listId/todos',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Todos'],
+      summary: 'Cria uma tarefa em uma lista',
+      description:
+        'Cria uma nova tarefa dentro de uma lista. Requer autenticação e acesso à lista.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          listId: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['listId'],
+      },
+
+      body: {
+        $ref: 'CreateTodo#',
+      },
+
+      response: {
+        201: {
+          $ref: 'CreatedResponse#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { listId } = request.params
+
+    const list = await getListOrDeny(request, reply, listId)
+    if (!list) return
+
     const {
       title,
       description,
       completed = false,
     } = request.body
 
-    const id = await database.create({
+    const id = await database.createTodo({
+      list_id: listId,
       title,
       description,
       completed,
@@ -418,12 +737,12 @@ server.post(
 
 /*
 |--------------------------------------------------------------------------
-| LIST TODOS
+| LIST TODOS (de uma lista)
 |--------------------------------------------------------------------------
 */
 
 server.get(
-  '/todos',
+  '/lists/:listId/todos',
   {
     preHandler: [
       server.authenticate,
@@ -431,15 +750,28 @@ server.get(
 
     schema: {
       tags: ['Todos'],
-      summary: 'Lista todos',
+      summary: 'Lista as tarefas de uma lista',
       description:
-        'Retorna todas as tarefas cadastradas.',
+        'Retorna as tarefas de uma lista específica. Requer acesso à lista.',
 
       security: [
         {
           bearerAuth: [],
         },
       ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          listId: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['listId'],
+      },
 
       querystring: {
         type: 'object',
@@ -465,15 +797,27 @@ server.get(
         401: {
           $ref: 'Error#',
         },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
       },
     },
   },
 
   async (request, reply) => {
+    const { listId } = request.params
     const { search } = request.query
 
+    const list = await getListOrDeny(request, reply, listId)
+    if (!list) return
+
     const todos =
-      await database.list(search)
+      await database.listTodos(listId, search)
 
     return reply.send(todos)
   },
@@ -486,7 +830,7 @@ server.get(
 */
 
 server.put(
-  '/todos/:id',
+  '/lists/:listId/todos/:id',
   {
     preHandler: [
       server.authenticate,
@@ -496,7 +840,7 @@ server.put(
       tags: ['Todos'],
       summary: 'Atualiza uma tarefa',
       description:
-        'Atualiza uma tarefa existente pelo ID.',
+        'Atualiza uma tarefa existente pelo ID, dentro de uma lista. Requer acesso à lista.',
 
       security: [
         {
@@ -508,13 +852,18 @@ server.put(
         type: 'object',
 
         properties: {
+          listId: {
+            type: 'string',
+            format: 'uuid',
+          },
+
           id: {
             type: 'string',
             format: 'uuid',
           },
         },
 
-        required: ['id'],
+        required: ['listId', 'id'],
       },
 
       body: {
@@ -530,6 +879,10 @@ server.put(
           $ref: 'Error#',
         },
 
+        403: {
+          $ref: 'Error#',
+        },
+
         404: {
           $ref: 'Error#',
         },
@@ -538,7 +891,10 @@ server.put(
   },
 
   async (request, reply) => {
-    const { id } = request.params
+    const { listId, id } = request.params
+
+    const list = await getListOrDeny(request, reply, listId)
+    if (!list) return
 
     const {
       title,
@@ -547,7 +903,7 @@ server.put(
     } = request.body
 
     const ok =
-      await database.update(id, {
+      await database.updateTodo(id, {
         title,
         description,
         completed,
@@ -573,7 +929,7 @@ server.put(
 */
 
 server.delete(
-  '/todos/:id',
+  '/lists/:listId/todos/:id',
   {
     preHandler: [
       server.authenticate,
@@ -583,7 +939,7 @@ server.delete(
       tags: ['Todos'],
       summary: 'Remove uma tarefa',
       description:
-        'Remove uma tarefa existente pelo ID.',
+        'Remove uma tarefa existente pelo ID, dentro de uma lista. Requer acesso à lista.',
 
       security: [
         {
@@ -595,13 +951,18 @@ server.delete(
         type: 'object',
 
         properties: {
+          listId: {
+            type: 'string',
+            format: 'uuid',
+          },
+
           id: {
             type: 'string',
             format: 'uuid',
           },
         },
 
-        required: ['id'],
+        required: ['listId', 'id'],
       },
 
       response: {
@@ -612,14 +973,25 @@ server.delete(
         401: {
           $ref: 'Error#',
         },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
       },
     },
   },
 
   async (request, reply) => {
-    const { id } = request.params
+    const { listId, id } = request.params
 
-    await database.delete(id)
+    const list = await getListOrDeny(request, reply, listId)
+    if (!list) return
+
+    await database.deleteTodo(id)
 
     return reply.status(200).send({
       message:

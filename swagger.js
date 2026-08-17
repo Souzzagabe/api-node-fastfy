@@ -17,8 +17,8 @@ export const swaggerOptions = {
         info: {
             title: 'Todos API',
             description:
-                'API para gerenciamento de tarefas (todos), com cadastro de usuários e autenticação via JWT.',
-            version: '1.0.0',
+                'API para gerenciamento de tarefas organizadas em listas (users -> lists -> todos), com cadastro de usuários, autenticação via JWT e controle de acesso por role (admin/user).',
+            version: '2.0.0',
         },
         servers: [
             {
@@ -36,8 +36,13 @@ export const swaggerOptions = {
                 description: 'Cadastro de usuários e autenticação',
             },
             {
+                name: 'Lists',
+                description:
+                    'Gerenciamento das listas (CRUD). Admin vê todas; usuário comum vê apenas as próprias.',
+            },
+            {
                 name: 'Todos',
-                description: 'Gerenciamento das tarefas (CRUD)',
+                description: 'Gerenciamento das tarefas (CRUD), sempre dentro de uma lista',
             },
         ],
         components: {
@@ -75,6 +80,7 @@ export const swaggerOptions = {
                     properties: {
                         id: { type: 'string', format: 'uuid' },
                         username: { type: 'string', example: 'gabriel' },
+                        role: { type: 'string', enum: ['admin', 'user'], example: 'user' },
                     },
                 },
                 Login: {
@@ -92,11 +98,28 @@ export const swaggerOptions = {
                 LoginResponse: {
                     type: 'object',
                     properties: {
-                        token: {
+                        message: {
                             type: 'string',
-                            description: 'Token JWT a ser enviado no header Authorization',
-                            example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                            example: 'Login realizado com sucesso',
                         },
+                    },
+                },
+
+                // ----- Lists -----
+                CreateList: {
+                    type: 'object',
+                    required: ['name'],
+                    properties: {
+                        name: { type: 'string', example: 'Compras da semana' },
+                    },
+                },
+                List: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        user_id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string', example: 'Compras da semana' },
+                        created_at: { type: 'string', format: 'date-time' },
                     },
                 },
 
@@ -117,6 +140,7 @@ export const swaggerOptions = {
                     type: 'object',
                     properties: {
                         id: { type: 'string', format: 'uuid' },
+                        list_id: { type: 'string', format: 'uuid' },
                         title: { type: 'string', example: 'Comprar leite' },
                         description: {
                             type: 'string',
