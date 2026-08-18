@@ -36,6 +36,7 @@ await server.register(cors, {
     'http://localhost:3000',
     'https://vue-dashboard-lovat.vercel.app',
   ],
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 })
 
@@ -429,6 +430,10 @@ server.post(
           $ref: 'CreatedResponse#',
         },
 
+        400: {
+          $ref: 'Error#',
+        },
+
         401: {
           $ref: 'Error#',
         },
@@ -438,6 +443,12 @@ server.post(
 
   async (request, reply) => {
     const { name } = request.body
+
+    if (!name) {
+      return reply.status(400).send({
+        message: 'Name is required',
+      })
+    }
 
     const id = await database.createList({
       user_id: request.user.userId,
