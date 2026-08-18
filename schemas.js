@@ -63,6 +63,64 @@ export const schemas = {
     ],
   },
 
+  UserWithStats: {
+    $id: 'UserWithStats',
+
+    type: 'object',
+
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+
+      username: {
+        type: 'string',
+      },
+
+      role: {
+        type: 'string',
+        enum: ['admin', 'user'],
+      },
+
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+
+      total_todos: {
+        type: 'integer',
+      },
+
+      completed_todos: {
+        type: 'integer',
+      },
+    },
+
+    required: [
+      'id',
+      'username',
+      'role',
+      'total_todos',
+      'completed_todos',
+    ],
+  },
+
+  UpdateRole: {
+    $id: 'UpdateRole',
+
+    type: 'object',
+
+    required: ['role'],
+
+    properties: {
+      role: {
+        type: 'string',
+        enum: ['admin', 'user'],
+      },
+    },
+  },
+
   Login: {
     $id: 'Login',
 

@@ -70,6 +70,52 @@ export class DatabasePostgres {
     return users[0] ?? null;
   }
 
+  /**
+   * Lista todos os usuários com contagem de tarefas totais/concluídas,
+   * somando as tarefas de todas as listas de cada usuário.
+   */
+  async listUsersWithStats() {
+    return this.sql`
+      SELECT
+        users.id,
+        users.username,
+        users.role,
+        users.created_at,
+        COUNT(todos.id)::int AS total_todos,
+        COUNT(todos.id) FILTER (WHERE todos.completed)::int AS completed_todos
+      FROM users
+      LEFT JOIN lists ON lists.user_id = users.id
+      LEFT JOIN todos ON todos.list_id = lists.id
+      GROUP BY users.id
+      ORDER BY users.username ASC
+    `;
+  }
+
+  async countAdmins() {
+    const result = await this.sql`
+      SELECT COUNT(*)::int AS count
+      FROM users
+      WHERE role = 'admin'
+    `;
+    return result[0].count;
+  }
+
+  async updateUserRole(id, role) {
+    const result = await this.sql`
+      UPDATE users
+      SET role = ${role}
+      WHERE id = ${id}
+    `;
+    return result.count > 0;
+  }
+
+  async deleteUser(id) {
+    await this.sql`
+      DELETE FROM users
+      WHERE id = ${id}
+    `;
+  }
+
   async ensureAdminUser() {
     const users = await this.sql`
       SELECT id

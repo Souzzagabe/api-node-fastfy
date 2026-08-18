@@ -6,6 +6,7 @@
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwZWI5YmY2OS1lNmNiLTQ4YjctYTdhYS01NzM4ZWFmOTYzYzAiLCJ1c2VybmFtZSI6ImpvZWxpbnRvbiIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzg2ODEyMjQxfQ.SLOg999MjYK1-AtPzzt1W5GmIHD3Nuoanejz1mBgjXI
 @listId = cc1fdd1e-1d78-4abb-9bf6-d749e790f3e7
 @todoId = 393661ae-f93a-4bb1-84c6-64d784f1691c
+@targetUserId = COLE_O_ID_DE_UM_USUARIO_AQUI
 
 ### ============================
 ### AUTH - CREATE USER
@@ -163,4 +164,43 @@ Authorization: Bearer {{token}}
 ### ============================
 
 DELETE {{baseUrl}}/lists/{{listId}}/todos/{{todoId}}
+Authorization: Bearer {{token}}
+
+###
+
+### ============================
+### ADMIN - LIST USERS (com estatísticas de tarefas)
+### Restrito a admin. Use o token do login admin.
+### ============================
+
+GET {{baseUrl}}/users
+Authorization: Bearer {{token}}
+
+###
+
+### ============================
+### ADMIN - UPDATE USER ROLE
+### Promove ("admin") ou rebaixa ("user") um usuário.
+### Restrito a admin. Não é possível alterar a própria role,
+### nem remover o último admin do sistema.
+### ============================
+
+PATCH {{baseUrl}}/users/{{targetUserId}}/role
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "role": "admin"
+}
+
+###
+
+### ============================
+### ADMIN - DELETE USER
+### Apaga o usuário e todas as suas listas/tarefas (cascade).
+### Restrito a admin. Não é possível se autoexcluir,
+### nem excluir o último admin do sistema.
+### ============================
+
+DELETE {{baseUrl}}/users/{{targetUserId}}
 Authorization: Bearer {{token}}

@@ -44,6 +44,11 @@ export const swaggerOptions = {
                 name: 'Todos',
                 description: 'Gerenciamento das tarefas (CRUD), sempre dentro de uma lista',
             },
+            {
+                name: 'Admin',
+                description:
+                    'Gerenciamento de usuários (listar com estatísticas, alterar role, excluir). Restrito a administradores.',
+            },
         ],
         components: {
             securitySchemes: {
@@ -81,6 +86,24 @@ export const swaggerOptions = {
                         id: { type: 'string', format: 'uuid' },
                         username: { type: 'string', example: 'gabriel' },
                         role: { type: 'string', enum: ['admin', 'user'], example: 'user' },
+                    },
+                },
+                UserWithStats: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        username: { type: 'string', example: 'gabriel' },
+                        role: { type: 'string', enum: ['admin', 'user'], example: 'user' },
+                        created_at: { type: 'string', format: 'date-time' },
+                        total_todos: { type: 'integer', example: 12 },
+                        completed_todos: { type: 'integer', example: 7 },
+                    },
+                },
+                UpdateRole: {
+                    type: 'object',
+                    required: ['role'],
+                    properties: {
+                        role: { type: 'string', enum: ['admin', 'user'], example: 'admin' },
                     },
                 },
                 Login: {
