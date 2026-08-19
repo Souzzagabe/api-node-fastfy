@@ -463,18 +463,6 @@ server.get(
   },
 )
 
-reply.setCookie('token', jwtToken, {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'none',
-  path: '/',
-  maxAge: 60 * 60 * 24,
-})
-
-return reply.redirect(`${FRONTEND_URL}/home`)
-  },
-)
-
 /*
 |--------------------------------------------------------------------------
 | ME
