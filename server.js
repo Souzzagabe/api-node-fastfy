@@ -357,6 +357,8 @@ server.post(
 server.get(
   '/auth/google/callback',
   async (request, reply) => {
+
+    // 1. Pega token do Google
     let token
 
     try {
@@ -364,12 +366,17 @@ server.get(
         await server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
           request
         )
+
       token = result.token
     } catch (error) {
       server.log.error(error)
-      return reply.redirect(`${FRONTEND_URL}/auth?error=google`)
+
+      return reply.redirect(
+        `${FRONTEND_URL}/auth?error=google`
+      )
     }
 
+    // 2. Busca informações do usuário no Google
     const googleResponse = await fetch(
       'https://www.googleapis.com/oauth2/v2/userinfo',
       {
@@ -380,42 +387,67 @@ server.get(
     )
 
     if (!googleResponse.ok) {
-      return reply.redirect(`${FRONTEND_URL}/auth?error=google`)
+      return reply.redirect(
+        `${FRONTEND_URL}/auth?error=google`
+      )
     }
 
     const googleUser = await googleResponse.json()
 
-    let user = await database.findUserByGoogleId(googleUser.id)
+    // 3. ENTRA AQUI O CÓDIGO NOVO
+    let user = await database.findUserByGoogleId(
+      googleUser.id,
+    )
 
     if (!user) {
-      const existingByEmail = await database.findUserByEmail(
-        googleUser.email
-      )
+      const existingByEmail =
+        await database.findUserByEmail(
+          googleUser.email,
+        )
 
       if (existingByEmail) {
-        // já existe uma conta com esse e-mail (criada via username/senha) —
-        // vincula a conta do Google a ela em vez de criar duplicada.
         await database.linkGoogleAccount(
           existingByEmail.id,
-          googleUser.id
+          googleUser.id,
         )
+
         user = existingByEmail
-      } else {
-        user = await database.createUser({
-          username: googleUser.email,
-          email: googleUser.email,
-          google_id: googleUser.id,
-          role: 'user',
-        })
       }
     }
 
+    if (!user) {
+      const existingByUsername =
+        await database.findUserByUsername(
+          googleUser.email,
+        )
+
+      if (existingByUsername) {
+        await database.linkGoogleAccount(
+          existingByUsername.id,
+          googleUser.id,
+        )
+
+        user = existingByUsername
+      }
+    }
+
+    if (!user) {
+      user = await database.createUser({
+        username: googleUser.email,
+        email: googleUser.email,
+        google_id: googleUser.id,
+        role: 'user',
+      })
+    }
+
+    // 4. Gera JWT
     const jwtToken = server.jwt.sign({
       userId: user.id,
       username: user.username,
       role: user.role,
     })
 
+    // 5. Salva cookie
     reply.setCookie('token', jwtToken, {
       httpOnly: true,
       secure: true,
@@ -424,7 +456,22 @@ server.get(
       maxAge: 60 * 60 * 24,
     })
 
-    return reply.redirect(`${FRONTEND_URL}/home`)
+    // 6. Volta para o Vue
+    return reply.redirect(
+      `${FRONTEND_URL}/home`
+    )
+  },
+)
+
+reply.setCookie('token', jwtToken, {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'none',
+  path: '/',
+  maxAge: 60 * 60 * 24,
+})
+
+return reply.redirect(`${FRONTEND_URL}/home`)
   },
 )
 
