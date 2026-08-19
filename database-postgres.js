@@ -14,6 +14,7 @@ const migrationsDir = path.join(__dirname, 'migrations');
 const createUsersSql = fs.readFileSync(path.join(migrationsDir, '001-create-users-table.sql'), 'utf8');
 const createListsSql = fs.readFileSync(path.join(migrationsDir, '002-create-lists-table.sql'), 'utf8');
 const createTodosSql = fs.readFileSync(path.join(migrationsDir, '003-create-todos-table.sql'), 'utf8');
+const addGoogleAuthSql = fs.readFileSync(path.join(migrationsDir, '004-add-google-auth-to-users.sql'), 'utf8');
 
 export class DatabasePostgres {
   constructor() {
@@ -28,6 +29,7 @@ export class DatabasePostgres {
     await this.sql.unsafe(createUsersSql);
     await this.sql.unsafe(createListsSql);
     await this.sql.unsafe(createTodosSql);
+    await this.sql.unsafe(addGoogleAuthSql);
   }
 
   async close() {
@@ -40,10 +42,10 @@ export class DatabasePostgres {
   |--------------------------------------------------------------------------
   */
 
-  async createUser({ id = randomUUID(), username, password_hash, role = 'user' }) {
+  async createUser({ id = randomUUID(), username, password_hash = null, email = null, google_id = null, role = 'user' }) {
     const result = await this.sql`
-      INSERT INTO users (id, username, password_hash, role)
-      VALUES (${id}, ${username}, ${password_hash}, ${role})
+      INSERT INTO users (id, username, password_hash, email, google_id, role)
+      VALUES (${id}, ${username}, ${password_hash}, ${email}, ${google_id}, ${role})
       RETURNING id, username, role;
     `;
 
@@ -58,6 +60,34 @@ export class DatabasePostgres {
       LIMIT 1
     `;
     return users[0] ?? null;
+  }
+
+  async findUserByEmail(email) {
+    const users = await this.sql`
+      SELECT id, username, email, role
+      FROM users
+      WHERE email = ${email}
+      LIMIT 1
+    `;
+    return users[0] ?? null;
+  }
+
+  async findUserByGoogleId(google_id) {
+    const users = await this.sql`
+      SELECT id, username, email, role
+      FROM users
+      WHERE google_id = ${google_id}
+      LIMIT 1
+    `;
+    return users[0] ?? null;
+  }
+
+  async linkGoogleAccount(id, google_id) {
+    await this.sql`
+      UPDATE users
+      SET google_id = ${google_id}
+      WHERE id = ${id}
+    `;
   }
 
   async findUserById(id) {
