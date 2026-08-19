@@ -458,7 +458,7 @@ server.get(
 
     // 6. Volta para o Vue
     return reply.redirect(
-      `${FRONTEND_URL}/home`
+      `${FRONTEND_URL}`
     )
   },
 )
