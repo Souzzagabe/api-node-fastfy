@@ -127,21 +127,8 @@ server.decorate(
   'authenticate',
   async function (request, reply) {
     try {
-      console.log('========== AUTH ==========')
-      console.log('COOKIES:', request.cookies)
-      console.log('HEADERS:', request.headers)
-
       await request.jwtVerify()
-
-      console.log('USER:', request.user)
-      console.log('==========================')
-
     } catch (error) {
-      console.error('========== JWT ERROR ==========')
-      console.error(error)
-      console.error('COOKIES:', request.cookies)
-      console.error('================================')
-
       return reply.status(401).send({
         message: 'Unauthorized',
       })
