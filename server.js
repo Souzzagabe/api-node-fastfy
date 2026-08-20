@@ -127,12 +127,8 @@ server.decorate(
   'authenticate',
   async function (request, reply) {
     try {
-      await request.jwtVerify({
-        onlyCookie: true,
-      })
+      await request.jwtVerify()
     } catch (error) {
-      server.log.error(error)
-
       return reply.status(401).send({
         message: 'Unauthorized',
       })
@@ -335,8 +331,6 @@ server.post(
       role: user.role,
     })
 
-    console.log('LOGIN TOKEN GERADO:', token)
-
     reply.setCookie('token', token, {
       httpOnly: true,
       secure: true,
@@ -344,8 +338,6 @@ server.post(
       path: '/',
       maxAge: 60 * 60 * 24,
     })
-
-    console.log('LOGIN FINALIZADO')
 
     return reply.send({
       message: 'Login realizado com sucesso',
@@ -360,13 +352,22 @@ server.post(
 | GET /auth/google         -> registrado automaticamente pelo @fastify/oauth2,
 |                              redireciona o usuário pro consentimento do Google.
 | GET /auth/google/callback -> o Google volta pra cá com o código de autorização.
+|
+| O callback NÃO seta o cookie de sessão diretamente: navegadores modernos
+| bloqueiam cookies de terceiros definidos no meio de uma cadeia de redirects
+| passando por vários domínios (proteção anti "bounce tracking"), que é
+| exatamente o que essa cadeia faz (vercel.app -> onrender.com ->
+| accounts.google.com -> onrender.com -> vercel.app).
+|
+| Em vez disso, o callback gera um token de troca de vida curta (60s) e manda
+| pro front via query string. O front então troca esse token pelo cookie de
+| sessão de verdade numa chamada XHR direta (POST /auth/google/exchange) —
+| o mesmo mecanismo que já funciona no /login comum.
 */
 
 server.get(
   '/auth/google/callback',
   async (request, reply) => {
-
-    // 1. Pega token do Google
     let token
 
     try {
@@ -374,17 +375,12 @@ server.get(
         await server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
           request
         )
-
       token = result.token
     } catch (error) {
       server.log.error(error)
-
-      return reply.redirect(
-        `${FRONTEND_URL}/auth?error=google`
-      )
+      return reply.redirect(`${FRONTEND_URL}/auth?error=google`)
     }
 
-    // 2. Busca informações do usuário no Google
     const googleResponse = await fetch(
       'https://www.googleapis.com/oauth2/v2/userinfo',
       {
@@ -395,67 +391,136 @@ server.get(
     )
 
     if (!googleResponse.ok) {
-      return reply.redirect(
-        `${FRONTEND_URL}/auth?error=google`
-      )
+      return reply.redirect(`${FRONTEND_URL}/auth?error=google`)
     }
 
     const googleUser = await googleResponse.json()
 
-    // 3. ENTRA AQUI O CÓDIGO NOVO
-    let user = await database.findUserByGoogleId(
-      googleUser.id,
-    )
+    let user = await database.findUserByGoogleId(googleUser.id)
 
     if (!user) {
-      const existingByEmail =
-        await database.findUserByEmail(
-          googleUser.email,
-        )
+      const existingByEmail = await database.findUserByEmail(
+        googleUser.email
+      )
 
       if (existingByEmail) {
+        // já existe uma conta com esse e-mail (criada via username/senha) —
+        // vincula a conta do Google a ela em vez de criar duplicada.
         await database.linkGoogleAccount(
           existingByEmail.id,
-          googleUser.id,
+          googleUser.id
         )
-
         user = existingByEmail
+      } else {
+        user = await database.createUser({
+          username: googleUser.email,
+          email: googleUser.email,
+          google_id: googleUser.id,
+          role: 'user',
+        })
       }
     }
 
-    if (!user) {
-      const existingByUsername =
-        await database.findUserByUsername(
-          googleUser.email,
-        )
-
-      if (existingByUsername) {
-        await database.linkGoogleAccount(
-          existingByUsername.id,
-          googleUser.id,
-        )
-
-        user = existingByUsername
+    const exchangeToken = server.jwt.sign(
+      {
+        userId: user.id,
+        type: 'google-exchange',
+      },
+      {
+        expiresIn: '60s',
       }
-    }
+    )
 
-    if (!user) {
-      user = await database.createUser({
-        username: googleUser.email,
-        email: googleUser.email,
-        google_id: googleUser.id,
-        role: 'user',
+    return reply.redirect(
+      `${FRONTEND_URL}/auth?googleToken=${exchangeToken}`
+    )
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| GOOGLE - EXCHANGE (troca o token de curta duração pelo cookie de sessão)
+|--------------------------------------------------------------------------
+*/
+
+server.post(
+  '/auth/google/exchange',
+  {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Troca o token do callback do Google pelo cookie de sessão',
+      description:
+        'Chamada feita pelo frontend logo após o redirect do Google. Recebe o token de curta duração e, se válido, seta o cookie HttpOnly de sessão — igual ao /login comum.',
+
+      body: {
+        type: 'object',
+        required: ['token'],
+        properties: {
+          token: {
+            type: 'string',
+          },
+        },
+      },
+
+      response: {
+        200: {
+          $ref: 'LoginResponse#',
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { token } = request.body
+
+    if (!token) {
+      return reply.status(400).send({
+        message: 'Token is required',
       })
     }
 
-    // 4. Gera JWT
+    let payload
+
+    try {
+      payload = server.jwt.verify(token)
+    } catch {
+      return reply.status(401).send({
+        message: 'Invalid or expired token',
+      })
+    }
+
+    if (payload.type !== 'google-exchange') {
+      return reply.status(401).send({
+        message: 'Invalid token',
+      })
+    }
+
+    const user = await database.findUserById(payload.userId)
+
+    if (!user) {
+      return reply.status(404).send({
+        message: 'User not found',
+      })
+    }
+
     const jwtToken = server.jwt.sign({
       userId: user.id,
       username: user.username,
       role: user.role,
     })
 
-    // 5. Salva cookie
     reply.setCookie('token', jwtToken, {
       httpOnly: true,
       secure: true,
@@ -464,9 +529,9 @@ server.get(
       maxAge: 60 * 60 * 24,
     })
 
-    // 6. Volta para o Vue
-    return reply.redirect(
-      `${FRONTEND_URL}/auth?redirect=/home`)
+    return reply.send({
+      message: 'Login realizado com sucesso',
+    })
   },
 )
 
@@ -520,8 +585,6 @@ server.get(
   },
 
   async (request, reply) => {
-    console.log('COOKIES:', request.cookies)
-    console.log('USER:', request.user)
     return reply.send({
       id: request.user.userId,
       username: request.user.username,
