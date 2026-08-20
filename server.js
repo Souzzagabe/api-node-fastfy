@@ -334,7 +334,7 @@ server.post(
     reply.setCookie('token', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
+      sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24,
     })
@@ -524,7 +524,7 @@ server.post(
     reply.setCookie('token', jwtToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'none',
+      sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24,
     })
