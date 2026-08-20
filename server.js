@@ -127,8 +127,12 @@ server.decorate(
   'authenticate',
   async function (request, reply) {
     try {
-      await request.jwtVerify()
+      await request.jwtVerify({
+        onlyCookie: true,
+      })
     } catch (error) {
+      server.log.error(error)
+
       return reply.status(401).send({
         message: 'Unauthorized',
       })
