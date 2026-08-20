@@ -127,9 +127,7 @@ server.decorate(
   'authenticate',
   async function (request, reply) {
     try {
-      await request.jwtVerify({
-        onlyCookie: true,
-      })
+      await request.jwtVerify()
     } catch (error) {
       server.log.error(error)
 
@@ -516,6 +514,8 @@ server.get(
   },
 
   async (request, reply) => {
+    console.log('COOKIES:', request.cookies)
+console.log('USER:', request.user)
     return reply.send({
       id: request.user.userId,
       username: request.user.username,
