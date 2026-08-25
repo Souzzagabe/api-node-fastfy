@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -156,7 +156,10 @@ export class DatabasePostgres {
 
     if (users.length === 0) {
       const id = randomUUID();
-      const passwordHash = await bcrypt.hash('123456', 10);
+      // Mesmo formato que o front produz: SHA-256 da senha em texto puro,
+      // depois bcrypt em cima disso (ver auth.service.ts / POST /login).
+      const sha256OfDefaultPassword = createHash('sha256').update('123456').digest('hex');
+      const passwordHash = await bcrypt.hash(sha256OfDefaultPassword, 10);
       await this.createUser({ id, username: 'admin', password_hash: passwordHash, role: 'admin' });
     }
   }

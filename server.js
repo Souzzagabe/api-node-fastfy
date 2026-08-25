@@ -199,10 +199,21 @@ server.post(
       tags: ['Auth'],
       summary: 'Cria um novo usuário',
       description:
-        'Cadastra um novo usuário informando username e password. O usuário criado sempre recebe role "user"; a role "admin" é reservada ao usuário seed.',
+        'Cadastra um novo usuário informando username (body) e o hash SHA-256 da senha (header X-Password-Hash). O usuário criado sempre recebe role "user"; a role "admin" é reservada ao usuário seed.',
 
       body: {
         $ref: 'CreateUser#',
+      },
+
+      headers: {
+        type: 'object',
+        required: ['x-password-hash'],
+        properties: {
+          'x-password-hash': {
+            type: 'string',
+            minLength: 1,
+          },
+        },
       },
 
       response: {
@@ -222,12 +233,13 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username, password } = request.body
+    const { username } = request.body
+    const passwordHash = request.headers['x-password-hash']
 
-    if (!username || !password) {
+    if (!username || !passwordHash) {
       return reply.status(400).send({
         message:
-          'Username and password are required',
+          'Username and password hash are required',
       })
     }
 
@@ -241,13 +253,13 @@ server.post(
       })
     }
 
-    const passwordHash =
-      await bcrypt.hash(password, 10)
+    const bcryptHash =
+      await bcrypt.hash(passwordHash, 10)
 
     const user =
       await database.createUser({
         username,
-        password_hash: passwordHash,
+        password_hash: bcryptHash,
         role: 'user',
       })
 
@@ -272,10 +284,21 @@ server.post(
       tags: ['Auth'],
       summary: 'Realiza login',
       description:
-        'Autentica um usuário e armazena o token JWT (com id e role) em um cookie HttpOnly.',
+        'Autentica um usuário (username no body, hash SHA-256 da senha no header X-Password-Hash) e armazena o token JWT (com id e role) em um cookie HttpOnly.',
 
       body: {
         $ref: 'Login#',
+      },
+
+      headers: {
+        type: 'object',
+        required: ['x-password-hash'],
+        properties: {
+          'x-password-hash': {
+            type: 'string',
+            minLength: 1,
+          },
+        },
       },
 
       response: {
@@ -295,12 +318,13 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username, password } = request.body
+    const { username } = request.body
+    const passwordHash = request.headers['x-password-hash']
 
-    if (!username || !password) {
+    if (!username || !passwordHash) {
       return reply.status(400).send({
         message:
-          'Username and password are required',
+          'Username and password hash are required',
       })
     }
 
@@ -315,7 +339,7 @@ server.post(
 
     const passwordMatches =
       await bcrypt.compare(
-        password,
+        passwordHash,
         user.password_hash,
       )
 
@@ -334,7 +358,7 @@ server.post(
     reply.setCookie('token', token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 60 * 60 * 24,
     })
@@ -524,7 +548,7 @@ server.post(
     reply.setCookie('token', jwtToken, {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 60 * 60 * 24,
     })
@@ -989,7 +1013,12 @@ server.get(
       role: request.user.role,
     })
 
-    return reply.send(lists)
+    // user_id é usado internamente pra checar permissão (getListOrDeny),
+    // mas não precisa sair na resposta — o front não usa e é um dado
+    // que não faz sentido expor sem necessidade.
+    const safeList = lists.map(({ user_id, ...rest }) => rest)
+
+    return reply.send(safeList)
   },
 )
 

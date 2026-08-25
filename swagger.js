@@ -140,7 +140,6 @@ export const swaggerOptions = {
                     type: 'object',
                     properties: {
                         id: { type: 'string', format: 'uuid' },
-                        user_id: { type: 'string', format: 'uuid' },
                         name: { type: 'string', example: 'Compras da semana' },
                         created_at: { type: 'string', format: 'date-time' },
                     },

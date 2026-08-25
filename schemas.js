@@ -20,18 +20,12 @@ export const schemas = {
 
     required: [
       'username',
-      'password',
     ],
 
     properties: {
       username: {
         type: 'string',
         minLength: 3,
-      },
-
-      password: {
-        type: 'string',
-        minLength: 6,
       },
     },
   },
@@ -128,15 +122,10 @@ export const schemas = {
 
     required: [
       'username',
-      'password',
     ],
 
     properties: {
       username: {
-        type: 'string',
-      },
-
-      password: {
         type: 'string',
       },
     },
@@ -178,11 +167,6 @@ export const schemas = {
 
     properties: {
       id: {
-        type: 'string',
-        format: 'uuid',
-      },
-
-      user_id: {
         type: 'string',
         format: 'uuid',
       },
