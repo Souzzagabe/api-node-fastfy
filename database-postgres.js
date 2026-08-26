@@ -16,6 +16,7 @@ const createListsSql = fs.readFileSync(path.join(migrationsDir, '002-create-list
 const createTodosSql = fs.readFileSync(path.join(migrationsDir, '003-create-todos-table.sql'), 'utf8');
 const addGoogleAuthSql = fs.readFileSync(path.join(migrationsDir, '004-add-google-auth-to-users.sql'), 'utf8');
 const addTodoPositionSql = fs.readFileSync(path.join(migrationsDir, '005-add-position-to-todos.sql'), 'utf8');
+const addProfileFieldsSql = fs.readFileSync(path.join(migrationsDir, '006-add-profile-fields-to-users.sql'), 'utf8');
 
 export class DatabasePostgres {
   constructor() {
@@ -32,6 +33,7 @@ export class DatabasePostgres {
     await this.sql.unsafe(createTodosSql);
     await this.sql.unsafe(addGoogleAuthSql);
     await this.sql.unsafe(addTodoPositionSql);
+    await this.sql.unsafe(addProfileFieldsSql);
   }
 
   async close() {
@@ -94,12 +96,36 @@ export class DatabasePostgres {
 
   async findUserById(id) {
     const users = await this.sql`
-      SELECT id, username, role
+      SELECT id, username, email, name, avatar_base64, password_hash, role
       FROM users
       WHERE id = ${id}
       LIMIT 1
     `;
     return users[0] ?? null;
+  }
+
+  async updateUserName(id, name) {
+    await this.sql`
+      UPDATE users
+      SET name = ${name}
+      WHERE id = ${id}
+    `;
+  }
+
+  async updateUserAvatar(id, avatar_base64) {
+    await this.sql`
+      UPDATE users
+      SET avatar_base64 = ${avatar_base64}
+      WHERE id = ${id}
+    `;
+  }
+
+  async updateUserEmail(id, email) {
+    await this.sql`
+      UPDATE users
+      SET email = ${email}
+      WHERE id = ${id}
+    `;
   }
 
   /**

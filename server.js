@@ -18,6 +18,7 @@ import { schemas } from './schemas.js'
 
 const server = Fastify({
   logger: true,
+  bodyLimit: 3 * 1024 * 1024, // 3MB — dá folga pro avatar em base64 (~1.5MB de imagem real)
 })
 
 const database = new DatabasePostgres()
@@ -589,6 +590,18 @@ server.get(
               type: 'string',
             },
 
+            email: {
+              type: 'string',
+            },
+
+            name: {
+              type: 'string',
+            },
+
+            avatar_base64: {
+              type: 'string',
+            },
+
             role: {
               type: 'string',
             },
@@ -609,10 +622,238 @@ server.get(
   },
 
   async (request, reply) => {
+    const user = await database.findUserById(request.user.userId)
+
+    if (!user) {
+      return reply.status(401).send({
+        message: 'Unauthorized',
+      })
+    }
+
     return reply.send({
-      id: request.user.userId,
-      username: request.user.username,
-      role: request.user.role,
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      avatar_base64: user.avatar_base64,
+      role: user.role,
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| PROFILE - UPDATE NAME / AVATAR
+|--------------------------------------------------------------------------
+*/
+
+const MAX_AVATAR_LENGTH = 2 * 1024 * 1024 // ~1.5MB de imagem real, em base64
+
+server.put(
+  '/profile',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Auth'],
+      summary: 'Atualiza nome e/ou foto de perfil do usuário autenticado',
+      description:
+        'avatar_base64 deve ser uma data URI (ex: "data:image/jpeg;base64,...").',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      body: {
+        type: 'object',
+
+        properties: {
+          name: {
+            type: 'string',
+            maxLength: 255,
+          },
+
+          avatar_base64: {
+            type: 'string',
+          },
+        },
+      },
+
+      response: {
+        200: {
+          type: 'object',
+
+          properties: {
+            id: { type: 'string' },
+            username: { type: 'string' },
+            email: { type: 'string' },
+            name: { type: 'string' },
+            avatar_base64: { type: 'string' },
+            role: { type: 'string' },
+          },
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { name, avatar_base64 } = request.body
+
+    if (avatar_base64 !== undefined) {
+      if (avatar_base64.length > MAX_AVATAR_LENGTH) {
+        return reply.status(400).send({
+          message: 'Avatar image is too large (max ~1.5MB)',
+        })
+      }
+
+      if (!/^data:image\/(png|jpe?g|webp|gif);base64,/.test(avatar_base64)) {
+        return reply.status(400).send({
+          message: 'Avatar must be a base64 image data URI',
+        })
+      }
+
+      await database.updateUserAvatar(request.user.userId, avatar_base64)
+    }
+
+    if (name !== undefined) {
+      await database.updateUserName(request.user.userId, name)
+    }
+
+    const user = await database.findUserById(request.user.userId)
+
+    return reply.send({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      name: user.name,
+      avatar_base64: user.avatar_base64,
+      role: user.role,
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
+| PROFILE - UPDATE EMAIL (exige senha atual)
+|--------------------------------------------------------------------------
+*/
+
+server.put(
+  '/profile/email',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Auth'],
+      summary: 'Atualiza o e-mail do usuário autenticado',
+      description:
+        'Exige o hash SHA-256 da senha atual no header X-Password-Hash, pra confirmar a identidade antes de trocar o e-mail.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      headers: {
+        type: 'object',
+        required: ['x-password-hash'],
+        properties: {
+          'x-password-hash': {
+            type: 'string',
+            minLength: 1,
+          },
+        },
+      },
+
+      body: {
+        type: 'object',
+        required: ['email'],
+
+        properties: {
+          email: {
+            type: 'string',
+            format: 'email',
+          },
+        },
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        409: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { email } = request.body
+    const passwordHash = request.headers['x-password-hash']
+
+    const user = await database.findUserById(request.user.userId)
+
+    if (!user) {
+      return reply.status(401).send({
+        message: 'Unauthorized',
+      })
+    }
+
+    if (!user.password_hash) {
+      return reply.status(400).send({
+        message:
+          'This account has no password set (logged in via Google) — cannot confirm identity this way',
+      })
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      passwordHash,
+      user.password_hash,
+    )
+
+    if (!passwordMatches) {
+      return reply.status(401).send({
+        message: 'Invalid password',
+      })
+    }
+
+    const existingUser = await database.findUserByEmail(email)
+
+    if (existingUser && existingUser.id !== user.id) {
+      return reply.status(409).send({
+        message: 'Email already in use',
+      })
+    }
+
+    await database.updateUserEmail(user.id, email)
+
+    return reply.status(200).send({
+      message: 'Email updated successfully!',
     })
   },
 )
