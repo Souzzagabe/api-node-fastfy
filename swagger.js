@@ -169,7 +169,19 @@ export const swaggerOptions = {
                             example: 'Comprar leite integral no mercado',
                         },
                         completed: { type: 'boolean', example: false },
+                        position: { type: 'integer', example: 0 },
                         created_at: { type: 'string', format: 'date-time' },
+                    },
+                },
+                ReorderTodos: {
+                    type: 'object',
+                    required: ['orderedIds'],
+                    properties: {
+                        orderedIds: {
+                            type: 'array',
+                            items: { type: 'string', format: 'uuid' },
+                            example: ['id-da-tarefa-1', 'id-da-tarefa-2'],
+                        },
                     },
                 },
                 CreatedResponse: {

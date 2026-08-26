@@ -1348,6 +1348,93 @@ server.get(
 
 /*
 |--------------------------------------------------------------------------
+| REORDER TODOS (drag and drop)
+|--------------------------------------------------------------------------
+*/
+
+server.put(
+  '/lists/:listId/todos/reorder',
+  {
+    preHandler: [
+      server.authenticate,
+    ],
+
+    schema: {
+      tags: ['Todos'],
+      summary: 'Reordena as tarefas de uma lista',
+      description:
+        'Recebe o array completo de ids da lista, na nova ordem (índice 0 = topo). Requer acesso à lista.',
+
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+
+      params: {
+        type: 'object',
+
+        properties: {
+          listId: {
+            type: 'string',
+            format: 'uuid',
+          },
+        },
+
+        required: ['listId'],
+      },
+
+      body: {
+        $ref: 'ReorderTodos#',
+      },
+
+      response: {
+        200: {
+          $ref: 'MessageResponse#',
+        },
+
+        400: {
+          $ref: 'Error#',
+        },
+
+        401: {
+          $ref: 'Error#',
+        },
+
+        403: {
+          $ref: 'Error#',
+        },
+
+        404: {
+          $ref: 'Error#',
+        },
+      },
+    },
+  },
+
+  async (request, reply) => {
+    const { listId } = request.params
+    const { orderedIds } = request.body
+
+    const list = await getListOrDeny(request, reply, listId)
+    if (!list) return
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+      return reply.status(400).send({
+        message: 'orderedIds must be a non-empty array',
+      })
+    }
+
+    await database.reorderTodos(listId, orderedIds)
+
+    return reply.status(200).send({
+      message: 'Todos reordered successfully!',
+    })
+  },
+)
+
+/*
+|--------------------------------------------------------------------------
 | UPDATE TODO
 |--------------------------------------------------------------------------
 */

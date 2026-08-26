@@ -233,9 +233,33 @@ export const schemas = {
         type: 'boolean',
       },
 
+      position: {
+        type: 'integer',
+      },
+
       created_at: {
         type: 'string',
         format: 'date-time',
+      },
+    },
+  },
+
+  ReorderTodos: {
+    $id: 'ReorderTodos',
+
+    type: 'object',
+
+    required: ['orderedIds'],
+
+    properties: {
+      orderedIds: {
+        type: 'array',
+        minItems: 1,
+
+        items: {
+          type: 'string',
+          format: 'uuid',
+        },
       },
     },
   },

@@ -15,6 +15,7 @@ const createUsersSql = fs.readFileSync(path.join(migrationsDir, '001-create-user
 const createListsSql = fs.readFileSync(path.join(migrationsDir, '002-create-lists-table.sql'), 'utf8');
 const createTodosSql = fs.readFileSync(path.join(migrationsDir, '003-create-todos-table.sql'), 'utf8');
 const addGoogleAuthSql = fs.readFileSync(path.join(migrationsDir, '004-add-google-auth-to-users.sql'), 'utf8');
+const addTodoPositionSql = fs.readFileSync(path.join(migrationsDir, '005-add-position-to-todos.sql'), 'utf8');
 
 export class DatabasePostgres {
   constructor() {
@@ -30,6 +31,7 @@ export class DatabasePostgres {
     await this.sql.unsafe(createListsSql);
     await this.sql.unsafe(createTodosSql);
     await this.sql.unsafe(addGoogleAuthSql);
+    await this.sql.unsafe(addTodoPositionSql);
   }
 
   async close() {
@@ -232,9 +234,16 @@ export class DatabasePostgres {
 
   async createTodo({ list_id, title, description, completed = false }) {
     const id = randomUUID();
+
+    const [{ next_position }] = await this.sql`
+      SELECT COALESCE(MAX(position), -1) + 1 AS next_position
+      FROM todos
+      WHERE list_id = ${list_id}
+    `;
+
     await this.sql`
-      INSERT INTO todos (id, list_id, title, description, completed)
-      VALUES (${id}, ${list_id}, ${title}, ${description ?? null}, ${completed})
+      INSERT INTO todos (id, list_id, title, description, completed, position)
+      VALUES (${id}, ${list_id}, ${title}, ${description ?? null}, ${completed}, ${next_position})
     `;
     return id;
   }
@@ -243,25 +252,25 @@ export class DatabasePostgres {
     if (search) {
       const pattern = `%${search}%`;
       return this.sql`
-        SELECT id, list_id, title, description, completed, created_at
+        SELECT id, list_id, title, description, completed, position, created_at
         FROM todos
         WHERE list_id = ${list_id}
           AND title ILIKE ${pattern}
-        ORDER BY created_at DESC
+        ORDER BY position ASC
       `;
     }
 
     return this.sql`
-      SELECT id, list_id, title, description, completed, created_at
+      SELECT id, list_id, title, description, completed, position, created_at
       FROM todos
       WHERE list_id = ${list_id}
-      ORDER BY created_at DESC
+      ORDER BY position ASC
     `;
   }
 
   async findTodoById(id) {
     const todos = await this.sql`
-      SELECT id, list_id, title, description, completed, created_at
+      SELECT id, list_id, title, description, completed, position, created_at
       FROM todos
       WHERE id = ${id}
       LIMIT 1
@@ -278,6 +287,25 @@ export class DatabasePostgres {
       WHERE id = ${id}
     `;
     return result.count > 0;
+  }
+
+  /**
+   * Reordena os todos de uma lista. `orderedIds` é o array completo de ids
+   * dessa lista, na nova ordem desejada (índice 0 = topo). Roda numa
+   * transação pra não deixar a lista num estado parcialmente reordenado
+   * se algo falhar no meio.
+   */
+  async reorderTodos(list_id, orderedIds) {
+    await this.sql.begin(async (tx) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await tx`
+          UPDATE todos
+          SET position = ${i}
+          WHERE id = ${orderedIds[i]}
+            AND list_id = ${list_id}
+        `;
+      }
+    });
   }
 
   async deleteTodo(id) {
