@@ -17,6 +17,7 @@ const createTodosSql = fs.readFileSync(path.join(migrationsDir, '003-create-todo
 const addGoogleAuthSql = fs.readFileSync(path.join(migrationsDir, '004-add-google-auth-to-users.sql'), 'utf8');
 const addTodoPositionSql = fs.readFileSync(path.join(migrationsDir, '005-add-position-to-todos.sql'), 'utf8');
 const addProfileFieldsSql = fs.readFileSync(path.join(migrationsDir, '006-add-profile-fields-to-users.sql'), 'utf8');
+const requireEmailSql = fs.readFileSync(path.join(migrationsDir, '007-require-email-for-login.sql'), 'utf8');
 
 export class DatabasePostgres {
   constructor() {
@@ -34,6 +35,7 @@ export class DatabasePostgres {
     await this.sql.unsafe(addGoogleAuthSql);
     await this.sql.unsafe(addTodoPositionSql);
     await this.sql.unsafe(addProfileFieldsSql);
+    await this.sql.unsafe(requireEmailSql);
   }
 
   async close() {
@@ -46,11 +48,11 @@ export class DatabasePostgres {
   |--------------------------------------------------------------------------
   */
 
-  async createUser({ id = randomUUID(), username, password_hash = null, email = null, google_id = null, role = 'user' }) {
+  async createUser({ id = randomUUID(), email, password_hash = null, google_id = null, role = 'user' }) {
     const result = await this.sql`
       INSERT INTO users (id, username, password_hash, email, google_id, role)
-      VALUES (${id}, ${username}, ${password_hash}, ${email}, ${google_id}, ${role})
-      RETURNING id, username, role;
+      VALUES (${id}, ${email}, ${password_hash}, ${email}, ${google_id}, ${role})
+      RETURNING id, username, email, role;
     `;
 
     return result[0];
@@ -68,7 +70,7 @@ export class DatabasePostgres {
 
   async findUserByEmail(email) {
     const users = await this.sql`
-      SELECT id, username, email, role
+      SELECT id, username, email, password_hash, role
       FROM users
       WHERE email = ${email}
       LIMIT 1
@@ -178,7 +180,8 @@ export class DatabasePostgres {
     const users = await this.sql`
       SELECT id
       FROM users
-      WHERE username = 'admin'
+      WHERE username = 'admin@example.com'
+         OR username = 'admin'
       LIMIT 1
     `;
 
@@ -188,7 +191,7 @@ export class DatabasePostgres {
       // depois bcrypt em cima disso (ver auth.service.ts / POST /login).
       const sha256OfDefaultPassword = createHash('sha256').update('123456').digest('hex');
       const passwordHash = await bcrypt.hash(sha256OfDefaultPassword, 10);
-      await this.createUser({ id, username: 'admin', password_hash: passwordHash, role: 'admin' });
+      await this.createUser({ id, email: 'admin@example.com', password_hash: passwordHash, role: 'admin' });
     }
   }
 

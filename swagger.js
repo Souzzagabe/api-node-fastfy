@@ -70,21 +70,18 @@ export const swaggerOptions = {
                 // ----- Users / Auth -----
                 CreateUser: {
                     type: 'object',
-                    required: ['username', 'password'],
+                    required: ['email'],
                     properties: {
-                        username: { type: 'string', example: 'gabriel' },
-                        password: {
-                            type: 'string',
-                            format: 'password',
-                            example: 'minhaSenhaForte123',
-                        },
+                        email: { type: 'string', format: 'email', example: 'gabriel@email.com' },
                     },
+                    description: 'A senha não vai no body — envie o hash SHA-256 dela no header X-Password-Hash.',
                 },
                 UserResponse: {
                     type: 'object',
                     properties: {
                         id: { type: 'string', format: 'uuid' },
-                        username: { type: 'string', example: 'gabriel' },
+                        username: { type: 'string', example: 'gabriel@email.com' },
+                        email: { type: 'string', example: 'gabriel@email.com' },
                         role: { type: 'string', enum: ['admin', 'user'], example: 'user' },
                     },
                 },
@@ -108,15 +105,11 @@ export const swaggerOptions = {
                 },
                 Login: {
                     type: 'object',
-                    required: ['username', 'password'],
+                    required: ['email'],
                     properties: {
-                        username: { type: 'string', example: 'gabriel' },
-                        password: {
-                            type: 'string',
-                            format: 'password',
-                            example: 'minhaSenhaForte123',
-                        },
+                        email: { type: 'string', format: 'email', example: 'gabriel@email.com' },
                     },
+                    description: 'A senha não vai no body — envie o hash SHA-256 dela no header X-Password-Hash.',
                 },
                 LoginResponse: {
                     type: 'object',

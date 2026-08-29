@@ -200,7 +200,7 @@ server.post(
       tags: ['Auth'],
       summary: 'Cria um novo usuário',
       description:
-        'Cadastra um novo usuário informando username (body) e o hash SHA-256 da senha (header X-Password-Hash). O usuário criado sempre recebe role "user"; a role "admin" é reservada ao usuário seed.',
+        'Cadastra um novo usuário informando email (body) e o hash SHA-256 da senha (header X-Password-Hash). O usuário criado sempre recebe role "user"; a role "admin" é reservada ao usuário seed.',
 
       body: {
         $ref: 'CreateUser#',
@@ -234,23 +234,23 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username } = request.body
+    const { email } = request.body
     const passwordHash = request.headers['x-password-hash']
 
-    if (!username || !passwordHash) {
+    if (!email || !passwordHash) {
       return reply.status(400).send({
         message:
-          'Username and password hash are required',
+          'Email and password hash are required',
       })
     }
 
     const existingUser =
-      await database.findUserByUsername(username)
+      await database.findUserByEmail(email)
 
     if (existingUser) {
       return reply.status(409).send({
         message:
-          'Username already exists',
+          'Email already exists',
       })
     }
 
@@ -259,7 +259,7 @@ server.post(
 
     const user =
       await database.createUser({
-        username,
+        email,
         password_hash: bcryptHash,
         role: 'user',
       })
@@ -267,6 +267,7 @@ server.post(
     return reply.status(201).send({
       id: user.id,
       username: user.username,
+      email: user.email,
       role: user.role,
     })
   },
@@ -285,7 +286,7 @@ server.post(
       tags: ['Auth'],
       summary: 'Realiza login',
       description:
-        'Autentica um usuário (username no body, hash SHA-256 da senha no header X-Password-Hash) e armazena o token JWT (com id e role) em um cookie HttpOnly.',
+        'Autentica um usuário (email no body, hash SHA-256 da senha no header X-Password-Hash) e armazena o token JWT (com id e role) em um cookie HttpOnly.',
 
       body: {
         $ref: 'Login#',
@@ -319,22 +320,28 @@ server.post(
   },
 
   async (request, reply) => {
-    const { username } = request.body
+    const { email } = request.body
     const passwordHash = request.headers['x-password-hash']
 
-    if (!username || !passwordHash) {
+    if (!email || !passwordHash) {
       return reply.status(400).send({
         message:
-          'Username and password hash are required',
+          'Email and password hash are required',
       })
     }
 
     const user =
-      await database.findUserByUsername(username)
+      await database.findUserByEmail(email)
 
     if (!user) {
       return reply.status(401).send({
         message: 'Invalid credentials',
+      })
+    }
+
+    if (!user.password_hash) {
+      return reply.status(401).send({
+        message: 'This account uses Google login — no password set',
       })
     }
 
@@ -438,7 +445,6 @@ server.get(
         user = existingByEmail
       } else {
         user = await database.createUser({
-          username: googleUser.email,
           email: googleUser.email,
           google_id: googleUser.id,
           role: 'user',

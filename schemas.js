@@ -19,13 +19,13 @@ export const schemas = {
     type: 'object',
 
     required: [
-      'username',
+      'email',
     ],
 
     properties: {
-      username: {
+      email: {
         type: 'string',
-        minLength: 3,
+        format: 'email',
       },
     },
   },
@@ -42,6 +42,10 @@ export const schemas = {
       },
 
       username: {
+        type: 'string',
+      },
+
+      email: {
         type: 'string',
       },
 
@@ -121,12 +125,13 @@ export const schemas = {
     type: 'object',
 
     required: [
-      'username',
+      'email',
     ],
 
     properties: {
-      username: {
+      email: {
         type: 'string',
+        format: 'email',
       },
     },
   },
